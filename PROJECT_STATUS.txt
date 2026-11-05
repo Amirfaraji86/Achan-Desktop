@@ -1,9 +1,10 @@
-Achan 1.0.2 - Windows x64 source / cloud-build package
-Hotfix: pass stdin=subprocess.DEVNULL to child command invocations (tasklist.exe and PowerShell)
-Reason: elevated GUI process can have an invalid inherited STDIN handle; Python subprocess then raises WinError 6 before command launch.
-GUI: compact dark green + black, Persian, single-instance, power toggle, four readiness stages, hidden rotating diagnostic log
+Achan 1.0.3 - Windows x64 source / cloud-build package
+UI: compact dark green + black, Persian, single-instance, animated power toggle, four readiness stages, hidden rotating diagnostic log
 Runtime: local HTTP CONNECT proxy, DoH, tun2proxy 0.8.7, Wintun 0.14.1
-Installer: Inno Setup 6 script; self-contained PyInstaller onedir output; Microsoft VC++ x64 runtime bundled and signature-checked in cloud build
-Cloud build: .github/workflows/build-windows.yml
-Status: source and CI pipeline prepared. Final Windows EXE/Setup must be compiled on a Windows runner; this Linux environment cannot run/test the actual Wintun driver or compile an authentic Windows installer.
-Important: app is not an anonymizing VPN; no remote relay; public IP is not hidden; generic UDP is not proxied.
+Windows 10/11 build: Python 3.13, current dependency set, standard tun2proxy x64 MSVC target, current VC++ runtime
+Windows 7 build: separate workflow, Python 3.8.10, Python 3.8-pinned dependencies, tun2proxy x86_64-win7-windows-msvc target, Wintun 0.14.1 and VS 2019 14.29 runtime
+Installer: Inno Setup 6; Windows 7 profile requires Windows 7 SP1 x64
+Compatibility changes: DNS cleanup uses WMI available on Windows 7 instead of newer NetAdapter/NetTCPIP PowerShell cmdlets
+Cloud builds: .github/workflows/build-windows.yml and .github/workflows/build-windows7.yml
+Status: source and CI pipeline prepared. The Windows 7 package must still be built in Actions and tested on a real Windows 7 SP1 x64 machine/VM before claiming fully verified compatibility.
+Important: Windows 7 and Python 3.8 are end-of-life. Achan is not an anonymizing VPN; no remote relay; public IP is not hidden; generic UDP is not proxied.

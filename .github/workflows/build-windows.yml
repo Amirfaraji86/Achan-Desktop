@@ -23,7 +23,7 @@ jobs:
           if ($env:GITHUB_REF -match '^refs/tags/v(?<version>\d+\.\d+\.\d+)$') {
             $version = $Matches.version
           } else {
-            $version = '1.0.2'
+            $version = '1.0.3'
           }
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "Building Achan $version"

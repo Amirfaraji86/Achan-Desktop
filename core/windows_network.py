@@ -25,7 +25,7 @@ class SOCKADDR_IN6(ctypes.Structure):
 def get_default_interface_indices() -> dict[str, int | None]:
     """Capture physical default-route interface indexes before TUN routes are added."""
     if sys.platform != "win32":
-        raise OSError("This application is designed for Windows 10/11.")
+        raise OSError("This application is designed for Windows 7 SP1 or later.")
 
     iphlpapi = ctypes.WinDLL("iphlpapi.dll")
     ipv4_index = wintypes.DWORD(0)

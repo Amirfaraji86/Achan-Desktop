@@ -8,12 +8,12 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from .proxy import LocalProxy
 from .windows_network import get_default_interface_indices
 
-StageCallback = Callable[[str, str, str | None], None]
+StageCallback = Callable[[str, str, Optional[str]], None]
 
 
 class NetworkController:
@@ -62,7 +62,7 @@ class NetworkController:
             if self.process is not None and self.process.poll() is None:
                 raise RuntimeError("Achan tunnel is already running")
             if sys.platform != "win32":
-                raise OSError("Achan system TUN mode is available only on Windows 10/11 x64")
+                raise OSError("Achan system TUN mode is available only on Windows 7 SP1 or later x64")
             self._starting = True
 
         failed_stage = "engine"
@@ -178,10 +178,17 @@ class NetworkController:
         if sys.platform != "win32":
             self._tunnel_attempted = False
             return
+        # Windows 7 does not include the newer NetAdapter/NetTCPIP PowerShell
+        # modules. Win32_NetworkAdapterConfiguration is available on Win7 SP1
+        # and later, so use WMI to restore the Wintun adapter DNS to automatic.
         command = (
-            "$adapter = Get-NetAdapter -Name 'wintun' -ErrorAction SilentlyContinue; "
-            "if ($adapter) { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex "
-            "-ResetServerAddresses -ErrorAction Stop }"
+            "$adapter = Get-WmiObject -Class Win32_NetworkAdapter "
+            "-Filter \"NetConnectionID='wintun'\" | Select-Object -First 1; "
+            "if ($adapter) { "
+            "$config = Get-WmiObject -Class Win32_NetworkAdapterConfiguration "
+            "-Filter \"Index=$($adapter.Index)\"; "
+            "if ($config) { $result = $config.SetDNSServerSearchOrder($null); "
+            "if ($result.ReturnValue -ne 0) { throw ('DNS reset return code: ' + $result.ReturnValue) } } }"
         )
         try:
             result = subprocess.run(

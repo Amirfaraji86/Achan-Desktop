@@ -76,7 +76,7 @@ class _RTLButton(tk.Button):
 tk.Label = _RTLLabel
 tk.Button = _RTLButton
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 APP_NAME = "Achan"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
@@ -675,8 +675,16 @@ class AchanApp:
 
 def main() -> int:
     if sys.platform != "win32":
-        print("Achan is designed for Windows 10/11 x64.")
+        print("Achan is designed for Windows 7 SP1 or later (x64).")
         return 2
+    try:
+        win_version = sys.getwindowsversion()
+        if (win_version.major, win_version.minor) == (6, 1) and getattr(win_version, "service_pack_major", 0) < 1:
+            print("Achan requires Windows 7 Service Pack 1 or later.")
+            return 2
+    except Exception:
+        # Do not block supported Windows versions if version reporting is unavailable.
+        pass
     mutex = SingleInstance()
     if mutex.already_running:
         messagebox.showwarning("Achan", rtl_text("آچان از قبل باز است."))

@@ -35,9 +35,9 @@ if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
   if not exist "build\vc_redist.x64.exe" goto :cloud_installer
   if not exist "installer\Farsi.isl" goto :cloud_installer
   echo [5/5] Compiling the installer...
-  "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.1 "installer\Achan.iss"
+  "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.3 "installer\Achan.iss"
   if errorlevel 1 goto :error
-  echo Installer created in dist\Achan-Setup-1.0.1.exe
+  echo Installer created in dist\Achan-Setup-1.0.3.exe
 ) else (
   echo Inno Setup 6 is not installed. The app folder is ready, but Setup.exe was not built.
   echo Use the GitHub Actions workflow to build the installer in the cloud.

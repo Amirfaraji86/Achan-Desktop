@@ -1,6 +1,6 @@
 #define AppName "Achan"
 #ifndef AppVersion
-  #define AppVersion "1.0.2"
+  #define AppVersion "1.0.3"
 #endif
 #define AppPublisher "Made by Faraj"
 #define AppExeName "Achan.exe"
@@ -16,9 +16,18 @@ DefaultGroupName=Achan
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
+#ifdef Win7Build
+MinVersion=6.1sp1
+#else
+MinVersion=10.0
+#endif
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=..\dist
+#ifdef Win7Build
+OutputBaseFilename=Achan-Setup-{#AppVersion}-Win7-x64
+#else
 OutputBaseFilename=Achan-Setup-{#AppVersion}
+#endif
 SetupIconFile=..\assets\achan.ico
 WizardImageFile=..\assets\wizard-big.bmp
 WizardSmallImageFile=..\assets\wizard-small.bmp
@@ -39,11 +48,19 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
 farsi.WelcomeLabel1=به نصب‌کننده آچان خوش آمدید
+#ifdef Win7Build
+farsi.WelcomeLabel2=این نسخه مخصوص Windows 7 SP1 نسخه ۶۴ بیتی است.%n%nپیش از نصب، به‌روزرسانی‌های KB4474419 و KB4490628 را نصب و ویندوز را Restart کنید.%n%nهمه فایل‌های runtime همراه نصب‌کننده هستند؛ Python لازم نیست.
+#else
 farsi.WelcomeLabel2=آچان اجزای لازم برای تونل شبکه و DNS امن را نصب می‌کند.%n%nهمه فایل‌های runtime همراه نصب‌کننده هستند؛ روی رایانه مقصد به Python نیازی نیست.
+#endif
 farsi.FinishedHeadingLabel=نصب آچان کامل شد
 farsi.FinishedLabel=آچان با موفقیت نصب شد. می‌توانی آن را از دسکتاپ یا منوی شروع اجرا کنی.
 english.WelcomeLabel1=Welcome to Achan Setup
+#ifdef Win7Build
+english.WelcomeLabel2=This edition is for 64-bit Windows 7 SP1.%n%nBefore installation, install updates KB4474419 and KB4490628, then restart Windows.%n%nThe installer includes the application runtime. Python is not required.
+#else
 english.WelcomeLabel2=Achan prepares your Windows network tunnel and secure DNS components.%n%nThe installer includes the application runtime. Python is not required on the target computer.
+#endif
 english.FinishedHeadingLabel=Installation complete
 english.FinishedLabel=Achan has been installed. You can start it now from the desktop or Start menu.
 
