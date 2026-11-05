@@ -1,4 +1,6 @@
-Achan 1.0.0 - Windows x64 source / cloud-build package
+Achan 1.0.2 - Windows x64 source / cloud-build package
+Hotfix: pass stdin=subprocess.DEVNULL to child command invocations (tasklist.exe and PowerShell)
+Reason: elevated GUI process can have an invalid inherited STDIN handle; Python subprocess then raises WinError 6 before command launch.
 GUI: compact dark green + black, Persian, single-instance, power toggle, four readiness stages, hidden rotating diagnostic log
 Runtime: local HTTP CONNECT proxy, DoH, tun2proxy 0.8.7, Wintun 0.14.1
 Installer: Inno Setup 6 script; self-contained PyInstaller onedir output; Microsoft VC++ x64 runtime bundled and signature-checked in cloud build

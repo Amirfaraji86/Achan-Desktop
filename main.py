@@ -8,6 +8,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -75,7 +76,7 @@ class _RTLButton(tk.Button):
 tk.Label = _RTLLabel
 tk.Button = _RTLButton
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.2"
 APP_NAME = "Achan"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
@@ -252,6 +253,11 @@ class AchanApp:
         self.state = "stopped"
         self.closing = False
         self.rows: dict[str, StageRow] = {}
+        self._toggle_anim_after = None
+        self._toggle_progress = 0.0
+        self._toggle_target = 0.0
+        self._toggle_anim_started = 0.0
+        self._toggle_anim_from = 0.0
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(120, self._drain_events)
@@ -263,8 +269,9 @@ class AchanApp:
 
     def _build_ui(self) -> None:
         self.root.title("Achan")
-        self.root.geometry("520x700")
+        self.root.geometry("540x720")
         self.root.resizable(False, False)
+        self.root.minsize(540, 720)
         self.root.configure(bg=COLORS["bg"])
         try:
             icon = APP_DIR / "assets" / "achan.ico"
@@ -321,6 +328,8 @@ class AchanApp:
                                 cursor="hand2")
         self.toggle.pack(side="right")
         self.toggle.bind("<Button-1>", lambda _event: self.toggle_connection())
+        self.toggle.bind("<space>", lambda _event: self.toggle_connection())
+        self.toggle.bind("<Return>", lambda _event: self.toggle_connection())
         self.toggle.bind("<Enter>", lambda _event: self.toggle.configure(cursor="hand2"))
         self._draw_toggle(False)
         labels = tk.Frame(controls, bg=COLORS["panel"])
@@ -375,34 +384,80 @@ class AchanApp:
                                font=("Segoe UI", 8), anchor="e", justify="right", wraplength=470)
         self.notice.pack(fill="x", pady=(7, 0))
 
+        # Persistent bottom bar: attribution remains visible at every window size.
+        disclaimer = tk.Label(base, text="آچان VPN نیست و IP عمومی را مخفی نمی‌کند؛ UDP ممکن است پشتیبانی نشود.",
+                              bg=COLORS["bg"], fg=COLORS["muted2"], font=("Segoe UI", 7), anchor="center")
+        disclaimer.pack(side="bottom", fill="x", pady=(8, 3))
         footer = tk.Frame(base, bg=COLORS["bg"])
-        footer.pack(fill="x", side="bottom", pady=(6, 0))
+        footer.pack(fill="x", side="bottom", pady=(3, 0))
         tk.Button(footer, text="گزارش تشخیصی", command=self.show_diagnostics, bg=COLORS["bg"],
                   fg=COLORS["muted"], activebackground=COLORS["panel"], activeforeground=COLORS["green"],
                   relief="flat", bd=0, font=("Segoe UI", 8), cursor="hand2").pack(side="right")
-        tk.Label(footer, text="Made by Faraj", bg=COLORS["bg"], fg=COLORS["muted2"],
-                 font=("Segoe UI", 8)).pack(side="left")
-        tk.Label(base, text="آچان VPN نیست و IP عمومی را مخفی نمی‌کند؛ UDP ممکن است پشتیبانی نشود.",
-                 bg=COLORS["bg"], fg=COLORS["muted2"], font=("Segoe UI", 7), anchor="center").pack(side="bottom", pady=(5, 0))
+        tk.Label(footer, text="Made by Faraj", bg=COLORS["bg"], fg=COLORS["green"],
+                 font=("Segoe UI", 9, "bold")).pack(side="left")
 
     def _chip(self, parent: tk.Widget, text: str) -> tk.Label:
         return tk.Label(parent, text=text, bg=COLORS["panel2"], fg=COLORS["muted"],
                         font=("Segoe UI", 8), padx=9, pady=5, highlightbackground=COLORS["border"], highlightthickness=1)
 
     def _draw_toggle(self, enabled: bool, busy: bool = False) -> None:
-        self.toggle.delete("all")
+        """Animate the switch thumb and track without blocking connection workers."""
+        target = 1.0 if enabled else 0.0
         if busy:
-            fill = "#304033"
-            knob_x = 80 if self.state in {"running", "stopping"} else 30
+            # During connection transitions, move toward the requested state but
+            # keep the control visually muted until the operation is confirmed.
+            target = 1.0 if self.state in {"starting", "running"} else 0.0
+        self._toggle_target = target
+        if self._toggle_anim_after is not None:
+            try:
+                self.root.after_cancel(self._toggle_anim_after)
+            except Exception:
+                pass
+            self._toggle_anim_after = None
+        self._toggle_anim_from = self._toggle_progress
+        self._toggle_anim_started = time.monotonic()
+        self._toggle_busy = busy
+        self._animate_toggle_frame()
+
+    @staticmethod
+    def _mix_color(a: str, b: str, t: float) -> str:
+        av = tuple(int(a[i:i+2], 16) for i in (1, 3, 5))
+        bv = tuple(int(b[i:i+2], 16) for i in (1, 3, 5))
+        values = tuple(round(x + (y - x) * t) for x, y in zip(av, bv))
+        return "#%02X%02X%02X" % values
+
+    def _animate_toggle_frame(self) -> None:
+        duration = 0.24
+        elapsed = min(1.0, (time.monotonic() - self._toggle_anim_started) / duration)
+        # Cubic ease-out: quick response, gentle settle.
+        eased = 1.0 - (1.0 - elapsed) ** 3
+        value = self._toggle_anim_from + (self._toggle_target - self._toggle_anim_from) * eased
+        self._toggle_progress = value
+        self.toggle.delete("all")
+        off = "#26352B"
+        on = COLORS["green2"]
+        track = self._mix_color(off, on, value)
+        if getattr(self, "_toggle_busy", False):
+            track = self._mix_color(track, "#304033", 0.42)
+        self.toggle.create_oval(5, 5, 107, 43, fill=track, outline="")
+        self.toggle.create_rectangle(24, 5, 88, 43, fill=track, outline="")
+        knob_x = 28 + (84 - 28) * value
+        self.toggle.create_oval(knob_x - 15, 9, knob_x + 15, 39,
+                                fill=COLORS["text"], outline="")
+        if getattr(self, "_toggle_busy", False):
             label = "..."
-        elif enabled:
-            fill, knob_x, label = COLORS["green2"], 84, "ON"
+            text_x = 28 if value > 0.5 else 82
         else:
-            fill, knob_x, label = "#26352B", 28, "OFF"
-        self.toggle.create_oval(5, 5, 107, 43, fill=fill, outline="")
-        self.toggle.create_oval(knob_x - 15, 9, knob_x + 15, 39, fill=COLORS["text"], outline="")
-        self.toggle.create_text(28 if enabled else 82, 24, text=label, fill=COLORS["bg" if enabled else "muted"],
+            label = "ON" if value >= 0.5 else "OFF"
+            text_x = 28 if value >= 0.5 else 82
+        self.toggle.create_text(text_x, 24, text=label,
+                                fill=COLORS["bg"] if value >= 0.5 else COLORS["muted"],
                                 font=("Segoe UI", 7, "bold"))
+        if elapsed < 1.0:
+            self._toggle_anim_after = self.root.after(16, self._animate_toggle_frame)
+        else:
+            self._toggle_anim_after = None
+            self._toggle_progress = self._toggle_target
 
     def _set_notice(self, text: str, kind: str = "normal") -> None:
         color = COLORS["red"] if kind == "error" else COLORS["amber"] if kind == "warning" else COLORS["muted"]

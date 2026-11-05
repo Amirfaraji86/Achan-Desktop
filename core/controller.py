@@ -46,6 +46,9 @@ class NetworkController:
     def _another_engine_is_running() -> bool:
         result = subprocess.run(
             ["tasklist.exe", "/FO", "CSV", "/NH"],
+            # Elevated GUI launches may not have a valid console STDIN handle.
+            # Explicit DEVNULL prevents subprocess from inheriting that invalid handle.
+            stdin=subprocess.DEVNULL,
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
@@ -183,6 +186,8 @@ class NetworkController:
         try:
             result = subprocess.run(
                 ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command],
+                # Same invalid inherited STDIN issue can otherwise prevent cleanup.
+                stdin=subprocess.DEVNULL,
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )

@@ -8,7 +8,7 @@
 2. در مخزن، وارد زبانه **Actions** شو و workflow با نام **Build Achan for Windows** را باز کن.
 3. روی **Run workflow** کلیک کن.
 4. پس از پایان موفق، در صفحه اجرای workflow بخش **Artifacts** را باز کن و فایل `Achan-Windows-x64` را دانلود کن.
-5. داخل بسته خروجی، فایل `Achan-Setup-1.0.0.exe` نصب‌کننده اصلی است. فایل `Achan-Portable-Win64.zip` نسخه قابل‌حمل است.
+5. داخل بسته خروجی، فایل `Achan-Setup-1.0.1.exe` نصب‌کننده اصلی است. فایل `Achan-Portable-Win64.zip` نسخه قابل‌حمل است.
 
 این ساخت در runner ویندوزی GitHub انجام می‌شود؛ Python فقط ابزار ساخت است و در رایانه مقصد لازم نیست.
 
