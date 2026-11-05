@@ -1,0 +1,164 @@
+name: Build Achan for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python for build only
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: 'x64'
+          cache: 'pip'
+
+      - name: Install Inno Setup 6 if needed
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+          }
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 compiler was not found.' }
+
+      - name: Download and verify networking runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $root = $env:GITHUB_WORKSPACE
+          $bin = Join-Path $root 'bin'
+          $temp = Join-Path $env:RUNNER_TEMP 'achan-runtime'
+          $licenses = Join-Path $root 'licenses'
+          New-Item -ItemType Directory -Force -Path $bin, $temp, $licenses | Out-Null
+
+          # tun2proxy v0.8.7 x64 release; SHA-256 pinned to the upstream GitHub release.
+          $tunUrl = 'https://github.com/tun2proxy/tun2proxy/releases/download/v0.8.7/tun2proxy-x86_64-pc-windows-msvc.zip'
+          $tunHash = '801396ff46776aac4d9a6660a2972dbeb70b68c90a95a38289126c756298f863'
+          $tunZip = Join-Path $temp 'tun2proxy.zip'
+          Invoke-WebRequest -Uri $tunUrl -OutFile $tunZip
+          $actual = (Get-FileHash -Algorithm SHA256 $tunZip).Hash.ToLowerInvariant()
+          if ($actual -ne $tunHash) { throw "tun2proxy SHA-256 mismatch: $actual" }
+          $tunDir = Join-Path $temp 'tun2proxy'
+          Expand-Archive -Path $tunZip -DestinationPath $tunDir -Force
+          $tunExe = Get-ChildItem $tunDir -Recurse -File -Filter 'tun2proxy-bin.exe' | Select-Object -First 1
+          if (-not $tunExe) { throw 'tun2proxy-bin.exe was not found in the official archive.' }
+          Copy-Item $tunExe.FullName (Join-Path $bin 'tun2proxy-bin.exe') -Force
+
+          # Wintun 0.14.1 x64 DLL; SHA-256 pinned to the official archive.
+          $wintunUrl = 'https://www.wintun.net/builds/wintun-0.14.1.zip'
+          $wintunHash = '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51'
+          $wintunZip = Join-Path $temp 'wintun.zip'
+          Invoke-WebRequest -Uri $wintunUrl -OutFile $wintunZip
+          $actual = (Get-FileHash -Algorithm SHA256 $wintunZip).Hash.ToLowerInvariant()
+          if ($actual -ne $wintunHash) { throw "Wintun SHA-256 mismatch: $actual" }
+          $wintunDir = Join-Path $temp 'wintun'
+          Expand-Archive -Path $wintunZip -DestinationPath $wintunDir -Force
+          $wintunDll = Join-Path $wintunDir 'wintun\bin\amd64\wintun.dll'
+          if (-not (Test-Path $wintunDll)) { throw 'The official x64 Wintun DLL was not found.' }
+          Copy-Item $wintunDll (Join-Path $bin 'wintun.dll') -Force
+
+          # Retain the license/readme shipped in the official Wintun archive.
+          Get-ChildItem $wintunDir -Recurse -File | Where-Object { $_.Name -match '^(LICENSE|COPYING|README)' } | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $licenses ("Wintun-" + $_.Name)) -Force
+          }
+          if (-not (Get-ChildItem $licenses -File -ErrorAction SilentlyContinue | Where-Object Name -Like 'Wintun-*')) {
+            'Wintun is distributed under its DLL-specific license. See https://www.wintun.net/ and the official archive.' | Set-Content (Join-Path $licenses 'Wintun-LICENSE-NOTICE.txt')
+          }
+
+          # Preserve the upstream MIT license for tun2proxy v0.8.7.
+          $tunLicenseUrl = 'https://raw.githubusercontent.com/tun2proxy/tun2proxy/b7cd433/LICENSE'
+          try { Invoke-WebRequest -Uri $tunLicenseUrl -OutFile (Join-Path $licenses 'tun2proxy-MIT.txt') }
+          catch { 'tun2proxy project: https://github.com/tun2proxy/tun2proxy (MIT License).' | Set-Content (Join-Path $licenses 'tun2proxy-LICENSE-NOTICE.txt') }
+
+          # Text-layout package notices (MIT + LGPL-3.0).
+          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/mpcabd/python-arabic-reshaper/57bf684b53e8d5e1c26cccd8cb5eb09a94f167b8/LICENSE' -OutFile (Join-Path $licenses 'arabic-reshaper-MIT.txt')
+          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/MeirKriheli/python-bidi/v0.6.12/COPYING.LESSER' -OutFile (Join-Path $licenses 'python-bidi-LGPL-3.0.txt')
+
+          # Microsoft VC++ x64 runtime is bundled to avoid a separate manual prerequisite.
+          $vcUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe'
+          $vc = Join-Path $root 'build\vc_redist.x64.exe'
+          New-Item -ItemType Directory -Force -Path (Split-Path $vc) | Out-Null
+          Invoke-WebRequest -Uri $vcUrl -OutFile $vc
+          $sig = Get-AuthenticodeSignature $vc
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
+            throw 'Microsoft VC++ Redistributable signature verification failed.'
+          }
+
+      - name: Build self-contained Achan application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check -r requirements.txt pyinstaller
+          python -c "import dns.message, dns.rdatatype, requests, certifi, arabic_reshaper; from bidi.algorithm import get_display; print('Runtime dependencies and Persian shaping OK')"
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name Achan --icon assets/achan.ico --version-file version_info.txt --add-data "assets;assets" --collect-all dns --collect-all arabic_reshaper --collect-all bidi --collect-data certifi --hidden-import=dns.message --hidden-import=dns.rdatatype --hidden-import=bidi.algorithm main.py
+          $app = Join-Path $env:GITHUB_WORKSPACE 'dist\Achan'
+          $bin = Join-Path $app 'bin'
+          $licenses = Join-Path $app 'licenses'
+          New-Item -ItemType Directory -Force -Path $bin, $licenses | Out-Null
+          Copy-Item 'bin\tun2proxy-bin.exe' (Join-Path $bin 'tun2proxy-bin.exe') -Force
+          Copy-Item 'bin\wintun.dll' (Join-Path $bin 'wintun.dll') -Force
+          Copy-Item 'LICENSE-ORIGINAL-MIT.txt' (Join-Path $licenses 'WebImmortalGuards-MIT.txt') -Force
+          Copy-Item 'licenses\*' $licenses -Force
+          Copy-Item 'THIRD_PARTY_NOTICES.md' (Join-Path $app 'THIRD_PARTY_NOTICES.md') -Force
+          if (-not (Test-Path (Join-Path $app 'Achan.exe'))) { throw 'Achan.exe was not produced.' }
+
+      - name: Prepare Persian installer language
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Community Farsi translation from the Inno Setup source repository, pinned to a commit.
+          $farsiUrl = 'https://raw.githubusercontent.com/jrsoftware/issrc/5bcadfcd05e9857a47a6880a2ac0694c9ab60122/Files/Languages/Unofficial/Farsi.isl'
+          Invoke-WebRequest -Uri $farsiUrl -OutFile 'installer\Farsi.isl'
+          if ((Get-Item 'installer\Farsi.isl').Length -lt 10000) { throw 'The Farsi installer translation download looks incomplete.' }
+
+      - name: Compile installer and portable package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DAppVersion=1.0.0' 'installer\Achan.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup exited with code $LASTEXITCODE" }
+          $dist = Join-Path $env:GITHUB_WORKSPACE 'dist'
+          Compress-Archive -Path (Join-Path $dist 'Achan') -DestinationPath (Join-Path $dist 'Achan-Portable-Win64.zip') -CompressionLevel Optimal -Force
+          $package = Join-Path $dist 'Achan-Distribution'
+          New-Item -ItemType Directory -Force -Path $package | Out-Null
+          Copy-Item (Join-Path $dist 'Achan-Setup-1.0.0.exe') $package -Force
+          Copy-Item (Join-Path $dist 'Achan-Portable-Win64.zip') $package -Force
+          Copy-Item 'README_FA.md' $package -Force
+          Get-ChildItem $package -File | Get-FileHash -Algorithm SHA256 | ForEach-Object {
+            "$($_.Hash.ToLowerInvariant())  $([System.IO.Path]::GetFileName($_.Path))"
+          } | Set-Content (Join-Path $package 'SHA256SUMS.txt')
+          Compress-Archive -Path (Join-Path $package '*') -DestinationPath (Join-Path $dist 'Achan-Distribution-Win64.zip') -CompressionLevel Optimal -Force
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Achan-Windows-x64
+          path: |
+            dist/Achan-Setup-1.0.0.exe
+            dist/Achan-Portable-Win64.zip
+            dist/Achan-Distribution-Win64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach files to GitHub Release when building a version tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Achan-Setup-1.0.0.exe
+            dist/Achan-Portable-Win64.zip
+            dist/Achan-Distribution-Win64.zip

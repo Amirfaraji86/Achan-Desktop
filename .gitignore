@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+bin/*
+!bin/.gitkeep
+build/
+dist/
+*.spec

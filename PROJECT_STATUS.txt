@@ -1,0 +1,7 @@
+Achan 1.0.0 - Windows x64 source / cloud-build package
+GUI: compact dark green + black, Persian, single-instance, power toggle, four readiness stages, hidden rotating diagnostic log
+Runtime: local HTTP CONNECT proxy, DoH, tun2proxy 0.8.7, Wintun 0.14.1
+Installer: Inno Setup 6 script; self-contained PyInstaller onedir output; Microsoft VC++ x64 runtime bundled and signature-checked in cloud build
+Cloud build: .github/workflows/build-windows.yml
+Status: source and CI pipeline prepared. Final Windows EXE/Setup must be compiled on a Windows runner; this Linux environment cannot run/test the actual Wintun driver or compile an authentic Windows installer.
+Important: app is not an anonymizing VPN; no remote relay; public IP is not hidden; generic UDP is not proxied.
