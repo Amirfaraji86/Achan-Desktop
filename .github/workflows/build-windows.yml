@@ -11,8 +11,7 @@ on:
         description: 'Version tag for Windows 10/11, for example v1.0.3'
         required: true
         type: string
-        default: v1.0.3
-
+        default: v1.0.3-win10-11
 permissions:
   contents: write
 
@@ -38,8 +37,8 @@ jobs:
             $tag = $env:GITHUB_REF_NAME
           }
 
-          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
-            throw "Invalid Windows 10/11 tag '$tag'. Expected vMAJOR.MINOR.PATCH (example: v1.0.3)."
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)-win10-11$') {
+            throw "Invalid Windows 10/11 tag '$tag'. Expected vMAJOR.MINOR.PATCH-win10-11."
           }
 
           $version = $Matches.version
