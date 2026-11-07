@@ -1,12 +1,16 @@
-name: Build Achan for Windows 7
+name: Build Achan - Windows 7 SP1
 
 on:
+  push:
+    tags:
+      - 'v*-win7'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing GitHub Release tag to attach the Windows 7 files to
+        description: 'Windows 7 version tag, for example v1.0.3-win7'
         required: true
-        default: v1.0.3
+        type: string
+        default: v1.0.3-win7
 
 permissions:
   contents: write
@@ -14,34 +18,43 @@ permissions:
 jobs:
   build-win7:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
-      - name: Checkout the selected release tag
+      - name: Checkout selected Windows 7 source tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ inputs.release_tag || github.ref }}
 
-      - name: Resolve release version
+      - name: Resolve and validate Windows 7 release tag
         shell: pwsh
         env:
           RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
         run: |
-          if ($env:RELEASE_TAG_INPUT -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
-            throw 'Enter a release tag in the form v1.0.3.'
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tag = $env:RELEASE_TAG_INPUT.Trim()
+          } else {
+            $tag = $env:GITHUB_REF_NAME
           }
+
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)-win7$') {
+            throw "Invalid Windows 7 tag '$tag'. Expected vMAJOR.MINOR.PATCH-win7 (example: v1.0.3-win7)."
+          }
+
           $version = $Matches.version
           $source = Get-Content 'main.py' -Raw
           if ($source -notmatch 'APP_VERSION\s*=\s*["''](?<sourceVersion>\d+\.\d+\.\d+)["'']') {
             throw 'Could not read APP_VERSION from main.py.'
           }
           if ($Matches.sourceVersion -ne $version) {
-            throw "Release tag v$version does not match source APP_VERSION $($Matches.sourceVersion)."
+            throw "Tag $tag does not match main.py APP_VERSION $($Matches.sourceVersion)."
           }
-          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "RELEASE_TAG=$env:RELEASE_TAG_INPUT" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Building Achan $version for Windows 7 SP1 x64"
 
-      - name: Set up Python 3.8.10 (Windows 7 compatible runtime)
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Building Achan $version for Windows 7 SP1 x64 (tag: $tag)"
+
+      - name: Set up Python 3.8.10 (Windows 7-compatible runtime)
         uses: actions/setup-python@v6
         with:
           python-version: '3.8.10'
@@ -49,14 +62,15 @@ jobs:
           cache: 'pip'
           cache-dependency-path: requirements-win7.txt
 
-      - name: Install Inno Setup 6
+      - name: Install Inno Setup 6.7.4
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) {
-            choco install innosetup --yes --no-progress
+            choco install innosetup --version=6.7.4 --yes --no-progress
           }
-          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 compiler was not found.' }
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6.7.4 compiler was not found.' }
 
       - name: Download and verify Windows 7 networking runtime
         shell: pwsh
@@ -69,7 +83,6 @@ jobs:
           $licenses = Join-Path $root 'licenses'
           New-Item -ItemType Directory -Force -Path $bin, $temp, $licenses | Out-Null
 
-          # Dedicated Rust target whose documented baseline is Windows 7.
           $tunUrl = 'https://github.com/tun2proxy/tun2proxy/releases/download/v0.8.7/tun2proxy-x86_64-win7-windows-msvc.zip'
           $tunHash = '2910c6ea76b54d6894deb69d98e83b927f2cebfe9a4a9328a6223fa6bb03305e'
           $tunZip = Join-Path $temp 'tun2proxy-win7.zip'
@@ -82,7 +95,6 @@ jobs:
           if (-not $tunExe) { throw 'tun2proxy-bin.exe was not found in the Win7-target archive.' }
           Copy-Item $tunExe.FullName (Join-Path $bin 'tun2proxy-bin.exe') -Force
 
-          # Official Wintun DLL supports Windows 7, 8, 8.1 and 10.
           $wintunUrl = 'https://www.wintun.net/builds/wintun-0.14.1.zip'
           $wintunHash = '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51'
           $wintunZip = Join-Path $temp 'wintun.zip'
@@ -94,19 +106,27 @@ jobs:
           $wintunDll = Join-Path $wintunDir 'wintun\bin\amd64\wintun.dll'
           if (-not (Test-Path $wintunDll)) { throw 'The official x64 Wintun DLL was not found.' }
           Copy-Item $wintunDll (Join-Path $bin 'wintun.dll') -Force
+
           Get-ChildItem $wintunDir -Recurse -File | Where-Object { $_.Name -match '^(LICENSE|COPYING|README)' } | ForEach-Object {
             Copy-Item $_.FullName (Join-Path $licenses ("Wintun-" + $_.Name)) -Force
           }
 
-          # Keep the upstream licenses associated with the exact Win7-compatible Python packages.
-          try { Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/tun2proxy/tun2proxy/b7cd433/LICENSE' -OutFile (Join-Path $licenses 'tun2proxy-MIT.txt') }
-          catch { 'tun2proxy v0.8.7 is MIT licensed: https://github.com/tun2proxy/tun2proxy' | Set-Content (Join-Path $licenses 'tun2proxy-LICENSE-NOTICE.txt') }
-          try { Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/mpcabd/python-arabic-reshaper/v3.0.0/LICENSE' -OutFile (Join-Path $licenses 'arabic-reshaper-MIT.txt') }
-          catch { 'arabic-reshaper v3.0.0 is MIT licensed: https://github.com/mpcabd/python-arabic-reshaper' | Set-Content (Join-Path $licenses 'arabic-reshaper-LICENSE-NOTICE.txt') }
-          try { Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/MeirKriheli/python-bidi/v0.5.2/COPYING.LESSER' -OutFile (Join-Path $licenses 'python-bidi-LGPL-3.0.txt') }
-          catch { 'python-bidi v0.5.2 is LGPL-3.0 licensed: https://github.com/MeirKriheli/python-bidi' | Set-Content (Join-Path $licenses 'python-bidi-LICENSE-NOTICE.txt') }
+          try {
+            Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/tun2proxy/tun2proxy/b7cd433/LICENSE' -OutFile (Join-Path $licenses 'tun2proxy-MIT.txt')
+          } catch {
+            'tun2proxy v0.8.7 is MIT licensed: https://github.com/tun2proxy/tun2proxy' | Set-Content (Join-Path $licenses 'tun2proxy-LICENSE-NOTICE.txt')
+          }
+          try {
+            Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/mpcabd/python-arabic-reshaper/v3.0.0/LICENSE' -OutFile (Join-Path $licenses 'arabic-reshaper-MIT.txt')
+          } catch {
+            'arabic-reshaper v3.0.0 is MIT licensed: https://github.com/mpcabd/python-arabic-reshaper' | Set-Content (Join-Path $licenses 'arabic-reshaper-LICENSE-NOTICE.txt')
+          }
+          try {
+            Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/MeirKriheli/python-bidi/v0.5.2/COPYING.LESSER' -OutFile (Join-Path $licenses 'python-bidi-LGPL-3.0.txt')
+          } catch {
+            'python-bidi v0.5.2 is LGPL-3.0 licensed: https://github.com/MeirKriheli/python-bidi' | Set-Content (Join-Path $licenses 'python-bidi-LICENSE-NOTICE.txt')
+          }
 
-          # VS 2019's 14.29 runtime is the legacy line that still installs on Windows 7 SP1.
           $vcUrl = 'https://aka.ms/vs/16/release/14.29.30157/VC_redist.x64.exe'
           $vc = Join-Path $root 'build\vc_redist.x64.exe'
           New-Item -ItemType Directory -Force -Path (Split-Path $vc) | Out-Null
@@ -116,17 +136,19 @@ jobs:
             throw 'Microsoft Visual C++ 2019 Redistributable signature verification failed.'
           }
 
-      - name: Build with Python 3.8-compatible dependencies
+      - name: Build with Windows 7-compatible Python and PyInstaller
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -m pip install --disable-pip-version-check 'pip==24.3.1'
-          python -m pip install --disable-pip-version-check -r requirements-win7.txt 'pyinstaller==6.22.3'
+          python -m pip install --disable-pip-version-check -r requirements-win7.txt 'pyinstaller==5.13.2'
           python -c "import dns.message, dns.rdatatype, requests, certifi, arabic_reshaper; from bidi.algorithm import get_display; print('Win7 dependency imports: OK')"
           python -m compileall -q main.py core
           python -m unittest discover -s tests -v
           python -m pip check
+
           python -m PyInstaller --noconfirm --clean --onedir --windowed --name Achan --icon assets/achan.ico --version-file version_info.txt --add-data "assets;assets" --collect-all dns --collect-all arabic_reshaper --collect-all bidi --collect-data certifi --hidden-import=dns.message --hidden-import=dns.rdatatype --hidden-import=bidi.algorithm main.py
+
           $app = Join-Path $env:GITHUB_WORKSPACE 'dist\Achan'
           $bin = Join-Path $app 'bin'
           $licenses = Join-Path $app 'licenses'
@@ -146,19 +168,21 @@ jobs:
           Invoke-WebRequest -Uri $farsiUrl -OutFile 'installer\Farsi.isl'
           if ((Get-Item 'installer\Farsi.isl').Length -lt 10000) { throw 'The Farsi installer translation download looks incomplete.' }
 
-      - name: Compile Windows 7 installer and portable package
+      - name: Compile Windows 7 installer and packages
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           & $iscc "/DAppVersion=$env:APP_VERSION" '/DWin7Build=1' 'installer\Achan.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup exited with code $LASTEXITCODE" }
+
           $dist = Join-Path $env:GITHUB_WORKSPACE 'dist'
-          $setup = Join-Path $dist "Achan-Setup-$env:APP_VERSION-Win7-x64.exe"
-          $portable = Join-Path $dist 'Achan-Portable-Win7-x64.zip'
-          if (-not (Test-Path $setup)) { throw 'The Windows 7 installer was not produced.' }
+          $setup = Join-Path $dist 'Achan-Setup-Windows-7-SP1-x64.exe'
+          $portable = Join-Path $dist 'Achan-Portable-Windows-7-SP1-x64.zip'
+          if (-not (Test-Path $setup)) { throw "Windows 7 Setup output was not produced: $setup" }
+
           Compress-Archive -Path (Join-Path $dist 'Achan') -DestinationPath $portable -CompressionLevel Optimal -Force
-          $package = Join-Path $dist 'Achan-Distribution-Win7-x64'
+          $package = Join-Path $dist 'Achan-Distribution-Windows-7-SP1-x64'
           New-Item -ItemType Directory -Force -Path $package | Out-Null
           Copy-Item $setup $package -Force
           Copy-Item $portable $package -Force
@@ -166,33 +190,63 @@ jobs:
           Get-ChildItem $package -File | Get-FileHash -Algorithm SHA256 | ForEach-Object {
             "$($_.Hash.ToLowerInvariant())  $([System.IO.Path]::GetFileName($_.Path))"
           } | Set-Content (Join-Path $package 'SHA256SUMS.txt')
-          $distribution = Join-Path $dist 'Achan-Distribution-Win7-x64.zip'
+          $distribution = Join-Path $dist 'Achan-Distribution-Windows-7-SP1-x64.zip'
           Compress-Archive -Path (Join-Path $package '*') -DestinationPath $distribution -CompressionLevel Optimal -Force
 
-      - name: Upload Windows 7 artifacts
+      - name: Upload Windows 7 SP1 build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Achan-Windows7-x64
+          name: Achan-Windows-7-SP1-x64
           path: |
-            dist/Achan-Setup-${{ env.APP_VERSION }}-Win7-x64.exe
-            dist/Achan-Portable-Win7-x64.zip
-            dist/Achan-Distribution-Win7-x64.zip
+            dist/Achan-Setup-Windows-7-SP1-x64.exe
+            dist/Achan-Portable-Windows-7-SP1-x64.zip
+            dist/Achan-Distribution-Windows-7-SP1-x64.zip
           if-no-files-found: error
           retention-days: 30
 
-      - name: Attach Windows 7 packages to the selected GitHub Release
+      - name: Publish Windows 7 SP1 GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:RELEASE_TAG
+          $title = 'Achan — Windows 7 SP1'
+          $notes = 'نسخه ۶۴ بیتی Achan برای Windows 7 SP1. پیش از نصب، به‌روزرسانی‌های موردنیاز Windows 7 را نصب و سیستم را راه‌اندازی مجدد کنید.'
           $assets = @(
-            "dist/Achan-Setup-$env:APP_VERSION-Win7-x64.exe",
-            'dist/Achan-Portable-Win7-x64.zip',
-            'dist/Achan-Distribution-Win7-x64.zip'
+            'dist/Achan-Setup-Windows-7-SP1-x64.exe',
+            'dist/Achan-Portable-Windows-7-SP1-x64.zip',
+            'dist/Achan-Distribution-Windows-7-SP1-x64.zip'
           )
-          gh release view $env:RELEASE_TAG *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG @assets --clobber
+          $assetNames = @($assets | ForEach-Object { Split-Path $_ -Leaf })
+
+          $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null
+          $apiExitCode = $LASTEXITCODE
+
+          if ($apiExitCode -eq 0) {
+            $release = $releaseJson | ConvertFrom-Json
+            $existingNames = @($release.assets | ForEach-Object { $_.name })
+            $missingNames = @($assetNames | Where-Object { $_ -notin $existingNames })
+
+            if ($release.immutable -eq $true) {
+              if ($missingNames.Count -eq 0) {
+                Write-Host "Immutable release $tag already contains all expected assets; nothing to upload."
+                exit 0
+              }
+              throw "Release $tag is immutable and is missing: $($missingNames -join ', '). Create a new version tag."
+            }
+
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Uploading assets to $tag failed." }
+
+            if ($release.draft -eq $true) {
+              gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/releases/$($release.id)" -F draft=false -f "name=$title" -f "body=$notes" | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "Publishing draft release $tag failed." }
+            } else {
+              gh release edit $tag --title "$title" --notes "$notes"
+              if ($LASTEXITCODE -ne 0) { throw "Updating release metadata for $tag failed." }
+            }
           } else {
-            gh release create $env:RELEASE_TAG @assets --title "Achan $env:APP_VERSION" --generate-notes --verify-tag
+            gh release create $tag @assets --title "$title" --notes "$notes" --verify-tag
+            if ($LASTEXITCODE -ne 0) { throw "Creating release $tag failed." }
           }
