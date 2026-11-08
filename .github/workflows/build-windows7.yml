@@ -2,15 +2,18 @@ name: Build Achan - Windows 7 SP1
 
 on:
   push:
-    tags:
-      - 'v*-win7'
+    branches: [main]
+    paths:
+      - 'main.py'
+      - 'core/**'
+      - 'assets/**'
+      - 'installer/**'
+      - 'requirements*.txt'
+      - 'version_info.txt'
+      - 'updater_helper.py'
+      - 'tests/**'
+      - '.github/workflows/build-windows*.yml'
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Windows 7 version tag, for example v1.0.3-win7'
-        required: true
-        type: string
-        default: v1.0.3-win7
 
 permissions:
   contents: write
@@ -20,41 +23,67 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout selected Windows 7 source tag
+      - name: Checkout main source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
-      - name: Resolve and validate Windows 7 release tag
+      - name: Resolve release version
+        id: resolve
         shell: pwsh
         env:
-          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+          EVENT_BEFORE: ${{ github.event.before }}
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $tag = $env:RELEASE_TAG_INPUT.Trim()
-          } else {
-            $tag = $env:GITHUB_REF_NAME
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            throw 'Run release builds from the main branch only.'
           }
-
-          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)-win7$') {
-            throw "Invalid Windows 7 tag '$tag'. Expected vMAJOR.MINOR.PATCH-win7 (example: v1.0.3-win7)."
-          }
-
-          $version = $Matches.version
           $source = Get-Content 'main.py' -Raw
-          if ($source -notmatch 'APP_VERSION\s*=\s*["''](?<sourceVersion>\d+\.\d+\.\d+)["'']') {
+          if ($source -notmatch 'APP_VERSION\s*=\s*["''](?<version>\d+\.\d+\.\d+)["'']') {
             throw 'Could not read APP_VERSION from main.py.'
           }
-          if ($Matches.sourceVersion -ne $version) {
-            throw "Tag $tag does not match main.py APP_VERSION $($Matches.sourceVersion)."
+          $version = $Matches.version
+          $versionInfo = Get-Content 'version_info.txt' -Raw
+          foreach ($resourceName in @('FileVersion', 'ProductVersion')) {
+            $resourcePattern = "StringStruct\('$resourceName',\s*'(?<resourceVersion>\d+\.\d+\.\d+)'\)"
+            $resourceMatch = [regex]::Match($versionInfo, $resourcePattern)
+            if (-not $resourceMatch.Success) {
+              throw "Could not read $resourceName from version_info.txt."
+            }
+            $resourceVersion = $resourceMatch.Groups['resourceVersion'].Value
+            if ($resourceVersion -ne $version) {
+              throw "main.py APP_VERSION ($version) does not match $resourceName ($resourceVersion)."
+            }
+          }
+          $tag = 'v' + $version + '-win7'
+          $shouldBuild = $true
+
+          if ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:EVENT_BEFORE -and
+              $env:EVENT_BEFORE -notmatch '^0+$') {
+            $previousRef = "$($env:EVENT_BEFORE):main.py"
+            $previousSource = git show $previousRef 2>$null | Out-String
+            if ($previousSource -match 'APP_VERSION\s*=\s*["''](?<previousVersion>\d+\.\d+\.\d+)["'']') {
+              $previousVersionText = $Matches.previousVersion
+              $currentSemVer = [version]$version
+              $previousSemVer = [version]$previousVersionText
+              if ($currentSemVer -lt $previousSemVer) {
+                throw "APP_VERSION cannot move backwards from $previousVersionText to $version."
+              }
+              if ($currentSemVer -eq $previousSemVer) {
+                $shouldBuild = $false
+                Write-Host "APP_VERSION remains $version; this push is not a release. Skipping build."
+              }
+            }
           }
 
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Building Achan $version for Windows 7 SP1 x64 (tag: $tag)"
+          "should_build=$($shouldBuild.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Achan $version | Windows 7 SP1 | $tag"
 
       - name: Set up Python 3.8.10 (Windows 7-compatible runtime)
+        if: steps.resolve.outputs.should_build == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.8.10'
@@ -62,17 +91,27 @@ jobs:
           cache: 'pip'
           cache-dependency-path: requirements-win7.txt
 
-      - name: Install Inno Setup 6.7.4
+      - name: Install and verify official Inno Setup 6.7.4
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) {
-            choco install innosetup --version=6.7.4 --yes --no-progress
+            $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.4.exe'
+            $url = 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe'
+            Invoke-WebRequest -Uri $url -OutFile $installer
+            $signature = Get-AuthenticodeSignature -FilePath $installer
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys B\.V\.') {
+              throw 'Official Inno Setup signature validation failed.'
+            }
+            $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Inno Setup installer failed with exit code $($process.ExitCode)." }
           }
-          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6.7.4 compiler was not found.' }
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6.7.4 compiler was not found after installation.' }
 
       - name: Download and verify Windows 7 networking runtime
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -137,6 +176,7 @@ jobs:
           }
 
       - name: Build with Windows 7-compatible Python and PyInstaller
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -159,8 +199,12 @@ jobs:
           Copy-Item 'licenses\*' $licenses -Force
           Copy-Item 'THIRD_PARTY_NOTICES.md' (Join-Path $app 'THIRD_PARTY_NOTICES.md') -Force
           if (-not (Test-Path (Join-Path $app 'Achan.exe'))) { throw 'Achan.exe was not produced.' }
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name AchanUpdater --workpath build\updater-work --distpath build\updater-dist --specpath build\updater-spec updater_helper.py
+          if (-not (Test-Path 'build\updater-dist\AchanUpdater.exe')) { throw 'AchanUpdater.exe was not produced.' }
+          Copy-Item 'build\updater-dist\AchanUpdater.exe' (Join-Path $app 'AchanUpdater.exe') -Force
 
       - name: Prepare Persian installer language
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -169,6 +213,7 @@ jobs:
           if ((Get-Item 'installer\Farsi.isl').Length -lt 10000) { throw 'The Farsi installer translation download looks incomplete.' }
 
       - name: Compile Windows 7 installer and packages
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -193,7 +238,25 @@ jobs:
           $distribution = Join-Path $dist 'Achan-Distribution-Windows-7-SP1-x64.zip'
           Compress-Archive -Path (Join-Path $package '*') -DestinationPath $distribution -CompressionLevel Optimal -Force
 
+          $setupItem = Get-Item $setup
+          $setupHash = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLowerInvariant()
+          $manifest = [ordered]@{
+            schema_version = 1
+            app_id = 'achan-desktop'
+            version = $env:APP_VERSION
+            tag = $env:RELEASE_TAG
+            platform = 'windows-7-sp1-x64'
+            installer = 'Achan-Setup-Windows-7-SP1-x64.exe'
+            size_bytes = $setupItem.Length
+            sha256 = $setupHash
+            release_notes = (Get-Content 'RELEASE_NOTES_FA.md' -Raw)
+          }
+          $manifestPath = Join-Path $dist 'Achan-Update-Windows-7-SP1.json'
+          $manifestJson = $manifest | ConvertTo-Json -Depth 5
+          [System.IO.File]::WriteAllText($manifestPath, $manifestJson, [System.Text.UTF8Encoding]::new($false))
+
       - name: Upload Windows 7 SP1 build artifact
+        if: steps.resolve.outputs.should_build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: Achan-Windows-7-SP1-x64
@@ -201,10 +264,12 @@ jobs:
             dist/Achan-Setup-Windows-7-SP1-x64.exe
             dist/Achan-Portable-Windows-7-SP1-x64.zip
             dist/Achan-Distribution-Windows-7-SP1-x64.zip
+            dist/Achan-Update-Windows-7-SP1.json
           if-no-files-found: error
           retention-days: 30
 
       - name: Publish Windows 7 SP1 GitHub Release
+        if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -212,33 +277,30 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $tag = $env:RELEASE_TAG
           $title = 'Achan — Windows 7 SP1'
-          $notes = 'نسخه ۶۴ بیتی Achan برای Windows 7 SP1. پیش از نصب، به‌روزرسانی‌های موردنیاز Windows 7 را نصب و سیستم را راه‌اندازی مجدد کنید.'
+          $notes = Get-Content 'RELEASE_NOTES_FA.md' -Raw
           $assets = @(
             'dist/Achan-Setup-Windows-7-SP1-x64.exe',
             'dist/Achan-Portable-Windows-7-SP1-x64.zip',
-            'dist/Achan-Distribution-Windows-7-SP1-x64.zip'
+            'dist/Achan-Distribution-Windows-7-SP1-x64.zip',
+            'dist/Achan-Update-Windows-7-SP1.json'
           )
           $assetNames = @($assets | ForEach-Object { Split-Path $_ -Leaf })
 
           $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null
           $apiExitCode = $LASTEXITCODE
-
           if ($apiExitCode -eq 0) {
             $release = $releaseJson | ConvertFrom-Json
             $existingNames = @($release.assets | ForEach-Object { $_.name })
             $missingNames = @($assetNames | Where-Object { $_ -notin $existingNames })
-
             if ($release.immutable -eq $true) {
               if ($missingNames.Count -eq 0) {
-                Write-Host "Immutable release $tag already contains all expected assets; nothing to upload."
+                Write-Host "Immutable release $tag already contains every expected asset."
                 exit 0
               }
-              throw "Release $tag is immutable and is missing: $($missingNames -join ', '). Create a new version tag."
+              throw "Release $tag is immutable and is missing: $($missingNames -join ', '). Increase APP_VERSION before publishing again."
             }
-
             gh release upload $tag @assets --clobber
-            if ($LASTEXITCODE -ne 0) { throw "Uploading assets to $tag failed." }
-
+            if ($LASTEXITCODE -ne 0) { throw "Uploading assets to release $tag failed." }
             if ($release.draft -eq $true) {
               gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/releases/$($release.id)" -F draft=false -f "name=$title" -f "body=$notes" | Out-Null
               if ($LASTEXITCODE -ne 0) { throw "Publishing draft release $tag failed." }
@@ -247,6 +309,6 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Updating release metadata for $tag failed." }
             }
           } else {
-            gh release create $tag @assets --title "$title" --notes "$notes" --verify-tag
+            gh release create $tag @assets --title "$title" --notes "$notes" --target $env:GITHUB_SHA
             if ($LASTEXITCODE -ne 0) { throw "Creating release $tag failed." }
           }

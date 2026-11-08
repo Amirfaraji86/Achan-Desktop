@@ -173,11 +173,11 @@ class NetworkController:
         except Exception as exc:
             self.logger(f"Could not read tun2proxy output: {exc}")
 
-    def _reset_wintun_dns(self) -> None:
-        """Clear the virtual adapter's temporary 10.0.0.1 DNS after stopping TUN."""
+    def _reset_wintun_dns(self) -> bool:
+        """Clear temporary Wintun DNS and report whether restoration succeeded."""
         if sys.platform != "win32":
             self._tunnel_attempted = False
-            return
+            return True
         # Windows 7 does not include the newer NetAdapter/NetTCPIP PowerShell
         # modules. Win32_NetworkAdapterConfiguration is available on Win7 SP1
         # and later, so use WMI to restore the Wintun adapter DNS to automatic.
@@ -200,12 +200,15 @@ class NetworkController:
             )
             if result.returncode == 0:
                 self.logger("Temporary Wintun DNS setting cleared")
-            else:
-                self.logger(f"Wintun DNS reset warning: {(result.stderr or result.stdout).strip()}")
+                self._tunnel_attempted = False
+                return True
+            self.logger(f"Wintun DNS reset warning: {(result.stderr or result.stdout).strip()}")
+            # Keep the cleanup flag set. A later stop/exit attempt may retry;
+            # importantly, the updater must not install over an unclean state.
+            return False
         except Exception as exc:
             self.logger(f"Wintun DNS reset warning: {exc}")
-        finally:
-            self._tunnel_attempted = False
+            return False
 
     def _stop_proxy_only(self) -> None:
         proxy, self.proxy = self.proxy, None
@@ -255,8 +258,8 @@ class NetworkController:
                         process.wait(timeout=4)
                     except Exception as kill_exc:
                         self.logger(f"Could not terminate tun2proxy: {kill_exc}")
-        if self._tunnel_attempted:
-            self._reset_wintun_dns()
+        if self._tunnel_attempted and not self._reset_wintun_dns():
+            clean = False
         self._stop_proxy_only()
         self.interface_indices = None
         self._last_stop_clean = clean

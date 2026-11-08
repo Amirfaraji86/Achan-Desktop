@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import json
 import logging
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -15,6 +17,7 @@ from pathlib import Path
 from tkinter import messagebox, scrolledtext
 
 from core.controller import NetworkController
+from core.update_client import UpdateClient, installed_by_setup
 
 # Tk 8.6 does not shape Arabic-script glyphs itself. Shape Persian labels before
 # handing them to Tk so the UI is legible on Windows and in diagnostics.
@@ -76,28 +79,30 @@ class _RTLButton(tk.Button):
 tk.Label = _RTLLabel
 tk.Button = _RTLButton
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.1.0"
 APP_NAME = "Achan"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
 DATA_DIR = LOCAL_APP_DATA / APP_NAME
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "achan.log"
+UPDATE_STATE_FILE = DATA_DIR / "update-state.json"
+UPDATE_INTERVAL_SECONDS = 24 * 60 * 60
 
 COLORS = {
-    "bg": "#080D0A",
-    "panel": "#101914",
-    "panel2": "#142119",
-    "border": "#263B2D",
-    "green": "#45E58B",
-    "green2": "#1C9E5B",
-    "green_dim": "#173B28",
-    "red": "#FF6B78",
-    "red_dim": "#472329",
-    "text": "#EAF5ED",
-    "muted": "#8C9E91",
-    "muted2": "#5D7063",
-    "amber": "#E9C16E",
+    "bg": "#080F12",
+    "panel": "#101B20",
+    "panel2": "#14252A",
+    "border": "#29454A",
+    "green": "#45DCC0",
+    "green2": "#1CA48F",
+    "green_dim": "#153B3A",
+    "red": "#FF7181",
+    "red_dim": "#48252D",
+    "text": "#EAF5F3",
+    "muted": "#8AA19B",
+    "muted2": "#5A716C",
+    "amber": "#E8C47A",
     "white": "#FFFFFF",
 }
 
@@ -258,10 +263,19 @@ class AchanApp:
         self._toggle_target = 0.0
         self._toggle_anim_started = 0.0
         self._toggle_anim_from = 0.0
+        self._status_anim_after = None
+        self._status_anim_phase = 0
+        self._update_client = UpdateClient()
+        self._update_check_running = False
+        self._update_installing = False
+        self._pending_update_installer = None
+        self._close_pending = False
+        self._shutdown_warning = False
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(120, self._drain_events)
         self.root.after(900, self._monitor)
+        self.root.after(2200, self._start_scheduled_update_check)
         self._log("Achan initialized")
         self._set_notice("برای شروع، کلید اتصال را روشن کن.", kind="normal")
         if auto_start:
@@ -289,15 +303,25 @@ class AchanApp:
         header.pack(fill="x", pady=(0, 14))
         logo = tk.Canvas(header, width=48, height=48, bg=COLORS["bg"], highlightthickness=0)
         logo.pack(side="left")
-        logo.create_oval(2, 2, 46, 46, fill=COLORS["green_dim"], outline=COLORS["border"], width=1)
-        logo.create_line(14, 30, 23, 13, 33, 30, fill=COLORS["green"], width=3, capstyle="round", joinstyle="round")
-        logo.create_line(18, 25, 28, 25, fill=COLORS["green"], width=2, capstyle="round")
+        logo.create_oval(2, 2, 46, 46, fill="#0A1518", outline="#29464A", width=1)
+        # Original Achan gateway mark: an open arch and an upward clear-path arrow.
+        logo.create_line(11, 39, 11, 29, 14, 20, 20, 12, 24, 10,
+                         fill="#45DCC0", width=3, smooth=True, capstyle="round", joinstyle="round")
+        logo.create_line(37, 39, 37, 29, 34, 20, 28, 12, 24, 10,
+                         fill="#E8C47A", width=3, smooth=True, capstyle="round", joinstyle="round")
+        logo.create_line(24, 34, 24, 20, fill="#B7F6E7", width=2, capstyle="round")
+        logo.create_line(19, 25, 24, 19, 29, 25, fill="#B7F6E7", width=2,
+                         capstyle="round", joinstyle="round")
+        logo.create_oval(22, 5, 26, 9, fill="#F4D89A", outline="")
         brand = tk.Frame(header, bg=COLORS["bg"])
         brand.pack(side="left", padx=(11, 0), fill="y")
         tk.Label(brand, text="Achan", bg=COLORS["bg"], fg=COLORS["text"],
                  font=("Segoe UI", 24, "bold")).pack(anchor="w")
         tk.Label(brand, text="مدیریت هوشمند اتصال ویندوز", bg=COLORS["bg"], fg=COLORS["muted"],
                  font=("Segoe UI", 9)).pack(anchor="w", pady=(0, 1))
+        # Keep the native Windows title bar for reliable minimize/close behavior
+        # on both Windows 7 and modern Windows; the close protocol performs a
+        # controlled tunnel shutdown before the process exits.
         tk.Label(header, text=f"v{APP_VERSION}", bg=COLORS["bg"], fg=COLORS["muted2"],
                  font=("Segoe UI", 8)).pack(side="right", anchor="n", pady=(8, 0))
 
@@ -310,9 +334,13 @@ class AchanApp:
                  font=("Segoe UI", 9)).pack(anchor="e")
         statusline = tk.Frame(top, bg=COLORS["panel"])
         statusline.pack(fill="x", pady=(4, 0))
-        self.big_dot = tk.Canvas(statusline, width=17, height=17, bg=COLORS["panel"], highlightthickness=0)
-        self.big_dot.pack(side="right", padx=(0, 7), pady=(4, 0))
-        self.big_dot_id = self.big_dot.create_oval(3, 3, 14, 14, fill=COLORS["muted2"], outline="")
+        self.big_dot = tk.Canvas(statusline, width=22, height=22, bg=COLORS["panel"], highlightthickness=0)
+        self.big_dot.pack(side="right", padx=(0, 7), pady=(2, 0))
+        self.big_dot_ring = self.big_dot.create_arc(
+            2, 2, 20, 20, start=0, extent=270, style=tk.ARC,
+            outline=COLORS["muted2"], width=2
+        )
+        self.big_dot_id = self.big_dot.create_oval(7, 7, 15, 15, fill=COLORS["muted2"], outline="")
         self.status_title = tk.Label(statusline, text="خاموش", bg=COLORS["panel"], fg=COLORS["text"],
                                      font=("Segoe UI", 18, "bold"))
         self.status_title.pack(side="right")
@@ -390,6 +418,13 @@ class AchanApp:
         disclaimer.pack(side="bottom", fill="x", pady=(8, 3))
         footer = tk.Frame(base, bg=COLORS["bg"])
         footer.pack(fill="x", side="bottom", pady=(3, 0))
+        self.update_button = tk.Button(
+            footer, text="بررسی به‌روزرسانی", command=self._update_button_action,
+            bg=COLORS["green_dim"], fg=COLORS["green"], activebackground=COLORS["green2"],
+            activeforeground=COLORS["white"], relief="flat", bd=0,
+            font=("Segoe UI", 8, "bold"), cursor="hand2", padx=10
+        )
+        self.update_button.pack(side="right", padx=(0, 8))
         tk.Button(footer, text="گزارش تشخیصی", command=self.show_diagnostics, bg=COLORS["bg"],
                   fg=COLORS["muted"], activebackground=COLORS["panel"], activeforeground=COLORS["green"],
                   relief="flat", bd=0, font=("Segoe UI", 8), cursor="hand2").pack(side="right")
@@ -482,15 +517,48 @@ class AchanApp:
                 elif kind == "started":
                     self.state = "running"
                     self._render_state()
-                    self._set_notice("تونل فعال است. می‌توانی از اینترنت استفاده کنی.")
+                    if self._pending_update_installer:
+                        self._set_notice("نسخه جدید آماده نصب است؛ پس از آماده‌شدن تونل، آن را ایمن قطع می‌کنیم.", "warning")
+                        self.root.after(250, self.stop_connection)
+                    else:
+                        self._set_notice("تونل فعال است. می‌توانی از اینترنت استفاده کنی.")
                 elif kind == "stopped":
+                    clean = bool(item[1]) if len(item) > 1 else True
                     self.state = "stopped"
                     for row in self.rows.values():
                         row.set_state("idle")
                     self._render_state()
-                    self._set_notice("اتصال قطع شد؛ مسیر عادی ویندوز بازیابی شد.")
+                    if self._pending_update_installer and clean:
+                        self._set_notice("تونل با موفقیت بسته شد؛ به‌روزرسانی در حال اجراست.", "warning")
+                        self.root.after(300, self._install_pending_update)
+                    elif self._pending_update_installer and not clean:
+                        self._shutdown_warning = True
+                        self._set_notice("به‌روزرسانی دانلود شده، اما بازیابی مسیر شبکه کامل تأیید نشد. برای ایمنی نصب متوقف شد؛ ویندوز را Restart کن.", "error")
+                        self._update_installing = False
+                        self.update_button.configure(state="normal", text="پس از Restart دوباره بررسی کن")
+                    else:
+                        self._set_notice("اتصال قطع شد؛ مسیر عادی ویندوز بازیابی شد.")
                 elif kind == "stop_warning":
-                    self._set_notice("تونل به‌طور کامل متوقف نشد؛ برای اطمینان یک‌بار ویندوز را Restart کن.", "warning")
+                    self._shutdown_warning = True
+                    self._set_notice("توقف تونل کامل تأیید نشد؛ برای اطمینان یک‌بار ویندوز را Restart کن.", "warning")
+                elif kind == "close_complete":
+                    _, clean = item
+                    self._close_pending = False
+                    self.state = "stopped"
+                    for row in self.rows.values():
+                        row.set_state("idle")
+                    self._render_state()
+                    if clean:
+                        self.closing = True
+                        self._finish_close()
+                    else:
+                        self._shutdown_warning = True
+                        self._set_notice("توقف تونل کامل تأیید نشد؛ آچان باز می‌ماند. ویندوز را Restart کن و فقط پس از آن خروج را نهایی کن.", "error")
+                        messagebox.showwarning(
+                            "Achan",
+                            rtl_text("بازیابی مسیر شبکه کامل تأیید نشد. برای جلوگیری از باقی‌ماندن تنظیمات موقت، ویندوز را Restart کن. آچان فعلاً باز می‌ماند."),
+                            parent=self.root,
+                        )
                 elif kind == "starting":
                     self.state = "starting"
                     self._render_state()
@@ -504,13 +572,83 @@ class AchanApp:
                     self._render_state()
                     self._set_notice(message, "error")
                     LOGGER.error("Connection startup failed: %s", message)
+                    if self._pending_update_installer:
+                        self.root.after(300, self._install_pending_update)
+                elif kind == "update_current":
+                    _, manual = item
+                    self._update_check_running = False
+                    self.update_button.configure(state="normal", text="بررسی به‌روزرسانی")
+                    if manual:
+                        self._set_notice("آچان به‌روز است؛ نسخه جدیدی برای این ویندوز منتشر نشده است.")
+                elif kind == "update_found":
+                    _, update_info = item
+                    self.update_button.configure(state="disabled", text="در حال دریافت…")
+                    note = " ".join((update_info.release_notes or "").split())
+                    note = note[:150]
+                    detail = "نسخه {} پیدا شد؛ دریافت و بررسی در پس‌زمینه آغاز شد.".format(update_info.version)
+                    if note:
+                        detail += " " + note
+                    self._set_notice(detail, "warning")
+                    threading.Thread(target=self._download_update_worker, args=(update_info,),
+                                     name="AchanUpdateDownload", daemon=True).start()
+                elif kind == "update_progress":
+                    _, update_version, received, total = item
+                    percent = int((received * 100) / total) if total else 0
+                    self.update_button.configure(text="دریافت {}٪".format(percent))
+                    self._set_notice("در حال دریافت نسخه {}: {}٪".format(update_version, percent), "warning")
+                elif kind == "update_downloaded":
+                    _, installer_path, update_version = item
+                    self._update_check_running = False
+                    self._pending_update_installer = installer_path
+                    self.update_button.configure(state="disabled", text="آماده نصب")
+                    self._set_notice("نسخه {} دانلود و SHA-256 آن تأیید شد؛ برای نصب، برنامه دوباره راه‌اندازی می‌شود.".format(update_version), "warning")
+                    if self.state == "running":
+                        self.stop_connection()
+                    elif self.state not in {"starting", "stopping"}:
+                        self.root.after(500, self._install_pending_update)
+                elif kind == "update_error":
+                    _, message = item
+                    self._update_check_running = False
+                    self.update_button.configure(state="normal", text="بررسی به‌روزرسانی")
+                    LOGGER.warning("Update check/download failed: %s", message)
+                    self._set_notice("بررسی/دریافت به‌روزرسانی انجام نشد: {}".format(message), "warning")
         except queue.Empty:
             pass
         if not self.closing:
             self.root.after(120, self._drain_events)
 
+    def _start_status_animation(self) -> None:
+        if self._status_anim_after is not None:
+            return
+        self._status_anim_phase = 0
+        self._animate_status_frame()
+
+    def _stop_status_animation(self) -> None:
+        if self._status_anim_after is not None:
+            try:
+                self.root.after_cancel(self._status_anim_after)
+            except Exception:
+                pass
+            self._status_anim_after = None
+        self.big_dot.itemconfigure(self.big_dot_ring, extent=270, start=0, outline=COLORS["muted2"])
+
+    def _animate_status_frame(self) -> None:
+        if self.state not in {"starting", "stopping"} or self.closing:
+            self._status_anim_after = None
+            return
+        self.big_dot.itemconfigure(
+            self.big_dot_ring,
+            start=self._status_anim_phase,
+            extent=245,
+            outline=COLORS["amber"],
+        )
+        self._status_anim_phase = (self._status_anim_phase + 24) % 360
+        self._status_anim_after = self.root.after(45, self._animate_status_frame)
+
     def _render_state(self) -> None:
         if self.state == "running":
+            self._stop_status_animation()
+            self.big_dot.itemconfigure(self.big_dot_ring, outline=COLORS["green"], extent=270, start=0)
             self.status_title.configure(text="متصل", fg=COLORS["green"])
             self.status_detail.configure(text="اتصال سراسری آچان فعال است.")
             self.big_dot.itemconfigure(self.big_dot_id, fill=COLORS["green"])
@@ -521,6 +659,7 @@ class AchanApp:
             self.control_subtitle.configure(text="برای بازگشت به حالت عادی خاموش کن")
             self._draw_toggle(True)
         elif self.state in {"starting", "stopping"}:
+            self._start_status_animation()
             title = "در حال اتصال..." if self.state == "starting" else "در حال قطع..."
             self.status_title.configure(text=title, fg=COLORS["amber"])
             self.status_detail.configure(text="لطفاً تا پایان عملیات، برنامه را نبند.")
@@ -532,6 +671,8 @@ class AchanApp:
             self.control_subtitle.configure(text="در حال آماده‌سازی شبکه")
             self._draw_toggle(self.state == "stopping", busy=True)
         else:
+            self._stop_status_animation()
+            self.big_dot.itemconfigure(self.big_dot_ring, outline=COLORS["muted2"], extent=270, start=0)
             self.status_title.configure(text="خاموش", fg=COLORS["text"])
             self.status_detail.configure(text="آچان هنوز تونل شبکه را فعال نکرده است.")
             self.big_dot.itemconfigure(self.big_dot_id, fill=COLORS["muted2"])
@@ -543,6 +684,13 @@ class AchanApp:
             self._draw_toggle(False)
 
     def toggle_connection(self) -> None:
+        if self._shutdown_warning:
+            messagebox.showwarning(
+                "Achan",
+                rtl_text("بازیابی مسیر شبکه کامل تأیید نشده است. برای جلوگیری از تداخل مسیرها، ابتدا ویندوز را Restart کن و سپس دوباره آچان را اجرا کن."),
+                parent=self.root,
+            )
+            return
         if self.state in {"starting", "stopping"}:
             return
         if self.state == "running":
@@ -599,7 +747,7 @@ class AchanApp:
             clean = self.controller.stop()
         except Exception:
             LOGGER.exception("Stop failed")
-        self.events.put(("stopped", ""))
+        self.events.put(("stopped", clean))
         if not clean:
             self.events.put(("stop_warning", ""))
 
@@ -612,6 +760,123 @@ class AchanApp:
             threading.Thread(target=self._stop_worker, name="AchanRecovery", daemon=True).start()
         if not self.closing:
             self.root.after(900, self._monitor)
+
+    def _update_button_action(self) -> None:
+        if self._pending_update_installer:
+            if self._shutdown_warning:
+                messagebox.showwarning(
+                    "Achan",
+                    rtl_text("برای نصب امن نسخه جدید، ابتدا ویندوز را Restart کن. پس از اجرای دوباره آچان، به‌روزرسانی مجدداً بررسی می‌شود."),
+                    parent=self.root,
+                )
+                return
+            self._install_pending_update()
+            return
+        self.check_for_updates(manual=True)
+
+    def _start_scheduled_update_check(self) -> None:
+        if not getattr(sys, "frozen", False) or not installed_by_setup(APP_DIR):
+            return
+        now = time.time()
+        try:
+            state = json.loads(UPDATE_STATE_FILE.read_text(encoding="utf-8"))
+            last_check = float(state.get("last_check", 0))
+        except (OSError, ValueError, TypeError):
+            last_check = 0.0
+        if now - last_check < UPDATE_INTERVAL_SECONDS:
+            return
+        self.check_for_updates(manual=False)
+
+    @staticmethod
+    def _write_update_check_time(timestamp: float) -> None:
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            UPDATE_STATE_FILE.write_text(json.dumps({"last_check": timestamp}), encoding="utf-8")
+        except OSError:
+            LOGGER.warning("Could not save update-check timestamp", exc_info=True)
+
+    def check_for_updates(self, manual: bool = False) -> None:
+        if self._update_check_running or self._update_installing:
+            return
+        if not installed_by_setup(APP_DIR):
+            if manual:
+                messagebox.showinfo(
+                    "Achan",
+                    rtl_text("به‌روزرسانی خودکار برای نسخه نصب‌شده فعال است. نسخه Portable باید با بسته جدید جایگزین شود."),
+                    parent=self.root,
+                )
+            return
+        self._update_check_running = True
+        if manual:
+            self.update_button.configure(state="disabled", text="در حال بررسی…")
+            self._set_notice("در حال بررسی انتشار رسمی آچان…")
+        threading.Thread(target=self._check_update_worker, args=(manual,),
+                         name="AchanUpdateCheck", daemon=True).start()
+
+    def _check_update_worker(self, manual: bool) -> None:
+        try:
+            windows = sys.getwindowsversion()
+            update_info = self._update_client.check_for_update(
+                APP_VERSION, (windows.major, windows.minor)
+            )
+            if update_info is None:
+                self._write_update_check_time(time.time())
+                self.events.put(("update_current", manual))
+            else:
+                # Do not postpone retries until tomorrow if download or UAC fails.
+                self.events.put(("update_found", update_info))
+        except Exception as exc:
+            self.events.put(("update_error", str(exc)))
+
+    def _download_update_worker(self, update_info) -> None:
+        try:
+            update_dir = DATA_DIR / "updates"
+            def report_progress(received: int, total: int) -> None:
+                self.events.put(("update_progress", update_info.version, received, total))
+            installer = self._update_client.download_installer(
+                update_info, update_dir, progress=report_progress
+            )
+            self.events.put(("update_downloaded", str(installer), update_info.version))
+        except Exception as exc:
+            self.events.put(("update_error", str(exc)))
+
+    def _install_pending_update(self) -> None:
+        if self.closing or self._update_installing or not self._pending_update_installer:
+            return
+        if self.state in {"starting", "running", "stopping"}:
+            return
+        bundled_helper = APP_DIR / "AchanUpdater.exe"
+        app_exe = APP_DIR / "Achan.exe"
+        installer = Path(self._pending_update_installer)
+        if not bundled_helper.is_file() or not app_exe.is_file() or not installer.is_file():
+            self._set_notice("فایل‌های لازم برای نصب خودکار کامل نیستند؛ نصب دستی لازم است.", "error")
+            self.update_button.configure(state="normal", text="بررسی به‌روزرسانی")
+            return
+        try:
+            # Run the helper from per-user data, not from {app}. The installer
+            # replaces files in {app}; keeping the live helper outside that
+            # directory prevents Windows/Restart Manager from locking its EXE.
+            helper_dir = DATA_DIR / "updater"
+            helper_dir.mkdir(parents=True, exist_ok=True)
+            helper = helper_dir / "AchanUpdater.exe"
+            shutil.copy2(str(bundled_helper), str(helper))
+            flags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008) | getattr(
+                subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200
+            ) | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            subprocess.Popen(
+                [str(helper), "--wait-pid", str(os.getpid()),
+                 "--installer", str(installer), "--restart", str(app_exe)],
+                cwd=str(APP_DIR), creationflags=flags,
+            )
+            self._update_installing = True
+            self.closing = True
+            self.mutex.release()
+            self.root.destroy()
+        except Exception as exc:
+            LOGGER.exception("Could not start detached updater")
+            self._update_installing = False
+            self._set_notice("اجرای نصب‌کننده خودکار ناموفق بود: {}".format(exc), "error")
+            self.update_button.configure(state="normal", text="تلاش دوباره برای آپدیت")
 
     def show_diagnostics(self) -> None:
         window = tk.Toplevel(self.root)
@@ -644,43 +909,71 @@ class AchanApp:
                   font=("Segoe UI", 9)).pack(side="right", padx=8)
 
     def close(self) -> None:
-        if self.closing:
+        if self.closing or self._update_installing or self._close_pending:
             return
         if self.state == "running":
-            if not messagebox.askyesno(rtl_text("خروج از آچان"), rtl_text("اتصال فعال است. قطع اتصال و خروج انجام شود؟"), parent=self.root):
+            if not messagebox.askyesno(
+                rtl_text("خروج از آچان"),
+                rtl_text("اتصال فعال است. تونل به‌صورت کنترل‌شده قطع و سپس برنامه بسته شود؟"),
+                parent=self.root,
+            ):
                 return
-            self.closing = True
+            self._close_pending = True
+            self.state = "stopping"
+            self._render_state()
+            self._set_notice("در حال قطع اتصال و بازیابی مسیر قبلی ویندوز...")
             threading.Thread(target=self._close_worker, name="AchanClose", daemon=True).start()
-            self._set_notice("در حال قطع اتصال پیش از خروج...")
             return
         if self.state in {"starting", "stopping"}:
             messagebox.showinfo("Achan", rtl_text("عملیات جاری را تا پایان متوقف نکن."), parent=self.root)
             return
+        if self._shutdown_warning:
+            confirmed = messagebox.askyesno(
+                rtl_text("خروج با هشدار شبکه"),
+                rtl_text("بازیابی مسیر شبکه در تلاش قبلی کامل تأیید نشد. توصیه می‌شود ابتدا ویندوز را Restart کنی. با وجود این هشدار خارج می‌شوی؟"),
+                parent=self.root,
+            )
+            if not confirmed:
+                return
         self.closing = True
-        self.mutex.release()
-        self.root.destroy()
+        self._finish_close()
 
     def _close_worker(self) -> None:
+        clean = False
         try:
             clean = self.controller.stop()
             if not clean:
-                LOGGER.warning("App closing after forced tunnel termination")
-        finally:
-            self.root.after(0, self._finish_close)
+                LOGGER.warning("Tunnel shutdown during app exit was not confirmed cleanly")
+        except Exception:
+            LOGGER.exception("Error while cleaning up the network tunnel during exit")
+        self.events.put(("close_complete", clean))
 
     def _finish_close(self) -> None:
+        self._stop_status_animation()
+        if self._toggle_anim_after is not None:
+            try:
+                self.root.after_cancel(self._toggle_anim_after)
+            except Exception:
+                pass
+            self._toggle_anim_after = None
         self.mutex.release()
         self.root.destroy()
 
 
 def main() -> int:
     if sys.platform != "win32":
-        print("Achan is designed for Windows 7 SP1 or later (x64).")
+        print("Achan is available only on supported Windows x64 editions.")
+        return 2
+    if sys.maxsize <= 2 ** 32:
+        print("Achan requires 64-bit Windows.")
         return 2
     try:
         win_version = sys.getwindowsversion()
         if (win_version.major, win_version.minor) == (6, 1) and getattr(win_version, "service_pack_major", 0) < 1:
-            print("Achan requires Windows 7 Service Pack 1 or later.")
+            print("Achan requires Windows 7 Service Pack 1 (SP1) x64. Please install SP1 and required SHA-2 updates.")
+            return 2
+        if (win_version.major, win_version.minor) != (6, 1) and win_version.major < 10:
+            print("Achan supports Windows 7 SP1, Windows 10, and Windows 11 only.")
             return 2
     except Exception:
         # Do not block supported Windows versions if version reporting is unavailable.

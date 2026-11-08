@@ -8,6 +8,8 @@ if %errorlevel%==0 (set "PY=py -3") else (set "PY=python")
 echo [1/5] Checking the build interpreter...
 %PY% --version
 if errorlevel 1 goto :error
+for /f "tokens=3 delims= " %%V in ('findstr /b /c:"APP_VERSION =" main.py') do set "APP_VERSION=%%~V"
+if not defined APP_VERSION goto :error
 
 echo [2/5] Installing build dependencies...
 %PY% -m pip install --disable-pip-version-check --retries 4 --timeout 30 -r requirements.txt pyinstaller
@@ -30,14 +32,19 @@ copy /y "LICENSE-ORIGINAL-MIT.txt" "dist\Achan\licenses\LICENSE-ORIGINAL-MIT.txt
 copy /y "licenses\*" "dist\Achan\licenses\" >nul 2>nul
 copy /y "THIRD_PARTY_NOTICES.md" "dist\Achan\THIRD_PARTY_NOTICES.md" >nul
 
+%PY% -m PyInstaller --noconfirm --clean --onefile --windowed --name AchanUpdater --workpath "build\updater-work" --distpath "build\updater-dist" --specpath "build\updater-spec" updater_helper.py
+if errorlevel 1 goto :error
+copy /y "build\updater-dist\AchanUpdater.exe" "dist\Achan\AchanUpdater.exe" >nul
+if errorlevel 1 goto :error
+
 echo [4/5] Application build complete: dist\Achan\Achan.exe
 if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
   if not exist "build\vc_redist.x64.exe" goto :cloud_installer
   if not exist "installer\Farsi.isl" goto :cloud_installer
   echo [5/5] Compiling the installer...
-  "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.3 "installer\Achan.iss"
+  "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" "/DAppVersion=%APP_VERSION%" "installer\Achan.iss"
   if errorlevel 1 goto :error
-  echo Installer created in dist\Achan-Setup-1.0.3.exe
+  echo Installer created in dist\Achan-Setup-Windows-10-11-x64.exe
 ) else (
   echo Inno Setup 6 is not installed. The app folder is ready, but Setup.exe was not built.
   echo Use the GitHub Actions workflow to build the installer in the cloud.
