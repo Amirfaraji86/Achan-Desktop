@@ -79,7 +79,7 @@ class _RTLButton(tk.Button):
 tk.Label = _RTLLabel
 tk.Button = _RTLButton
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 APP_NAME = "Achan"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
@@ -283,9 +283,9 @@ class AchanApp:
 
     def _build_ui(self) -> None:
         self.root.title("Achan")
-        self.root.geometry("540x720")
+        self.root.geometry("540x780")
         self.root.resizable(False, False)
-        self.root.minsize(540, 720)
+        self.root.minsize(540, 780)
         self.root.configure(bg=COLORS["bg"])
         try:
             icon = APP_DIR / "assets" / "achan.ico"

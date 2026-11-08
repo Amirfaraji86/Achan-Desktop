@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 1, 0, 0),
-    prodvers=(1, 1, 0, 0),
+    filevers=(1, 1, 1, 0),
+    prodvers=(1, 1, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x4,
@@ -15,11 +15,11 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'Made by Faraj'),
          StringStruct('FileDescription', 'Achan network connection manager'),
-         StringStruct('FileVersion', '1.1.0'),
+         StringStruct('FileVersion', '1.1.1'),
          StringStruct('InternalName', 'Achan'),
          StringStruct('OriginalFilename', 'Achan.exe'),
          StringStruct('ProductName', 'Achan'),
-         StringStruct('ProductVersion', '1.1.0')])
+         StringStruct('ProductVersion', '1.1.1')])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]

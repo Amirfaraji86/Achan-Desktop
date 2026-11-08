@@ -1,4 +1,4 @@
-Achan 1.1.0 — Windows 7 SP1 / 10 / 11 x64
+Achan 1.1.1 — Windows 7 SP1 / 10 / 11 x64
 Branding: original custom gateway/clear-path mark; teal + gold UI palette; Made by Faraj
 UI: Persian RTL; animated connection switch; transition status spinner; stage readiness indicators; safe native minimize/close behavior; shutdown is not marked clean unless Wintun DNS restoration succeeds
 Updater: GitHub Release API; platform-specific stable update channels; JSON manifests; installer name/version/size/SHA-256 validation; detached helper installs and restarts the GUI
