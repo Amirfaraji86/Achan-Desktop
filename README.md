@@ -2,87 +2,201 @@
 
 ### مدیریت هوشمند اتصال شبکه در ویندوز
 
-Achan is a lightweight Windows desktop application that coordinates secure DNS-over-HTTPS, a local HTTP proxy, and a TUN interface through Wintun. The Persian-first interface reports each startup stage and provides controlled connection shutdown.
+آچان یک ابزار سبک و مینیمال برای مدیریت اتصال شبکه در ویندوز است که از DNS امن، پراکسی HTTP محلی و تونل شبکه استفاده می‌کند.
 
-**Made by Faraj**
+تمام امکانات از طریق یک رابط گرافیکی فارسی در دسترس هستند. وضعیت اجزای مختلف شبکه به‌صورت مرحله‌ای نمایش داده می‌شود و کاربر می‌تواند اتصال را به‌سادگی فعال یا غیرفعال کند.
 
-## Supported Windows editions
+**ساخته‌شده با ❤️ توسط Faraj**
 
-| Edition | Architecture | Build channel |
+---
+
+## ✨ امکانات
+
+- رابط گرافیکی فارسی با چینش راست‌به‌چپ.
+- فعال و غیرفعال کردن اتصال با یک کلید انیمیشنی.
+- نمایش مرحله‌ای وضعیت موتور شبکه، DNS، پراکسی و تونل.
+- استفاده از DNS over HTTPS (DoH).
+- ایجاد پراکسی HTTP محلی روی `127.0.0.1:4525`.
+- مسیریابی ترافیک TCP از طریق تونل TUN.
+- استفاده از Wintun و `tun2proxy`.
+- گزارش تشخیصی برای عیب‌یابی مشکلات اتصال.
+- نصب آسان بدون نیاز به نصب Python روی رایانه مقصد.
+- بررسی خودکار و دستی نسخه‌های جدید در نسخه‌های نصب‌شده.
+- به‌روزرسانی جداگانه برای Windows 7 و Windows 10/11.
+
+## 🖥️ سیستم‌عامل‌های پشتیبانی‌شده
+
+| سیستم‌عامل | معماری | کانال انتشار |
 |---|---|---|
 | Windows 11 | x64 | Windows 10/11 |
 | Windows 10 | x64 | Windows 10/11 |
-| Windows 7 SP1 | x64 | Windows 7 SP1 |
+| Windows 7 SP1 | x64 | Windows 7 |
 
-The Windows 7 build uses a separate, legacy-compatible Python and networking runtime. Windows 7 and Python 3.8 are end-of-life; a supported Windows release is recommended.
+نسخه Windows 7 از نسخه‌های قدیمی‌تر و سازگار Python و وابستگی‌های شبکه استفاده می‌کند. Windows 7 و Python 3.8 دیگر پشتیبانی عمومی دریافت نمی‌کنند؛ استفاده از نسخه‌های جدیدتر ویندوز توصیه می‌شود.
 
-## Features
+## ⚙️ آچان چطور کار می‌کند؟
 
-- Persian right-to-left desktop interface.
-- Animated connection switch and explicit stage status for the engine, local proxy, secure DNS, and TUN tunnel.
-- Local HTTP proxy bound to `127.0.0.1:4525`.
-- DNS-over-HTTPS using `sky.rethinkdns.com`.
-- Wintun and `tun2proxy` for system TCP routing.
-- Local diagnostic logs.
-- In-app update checks for installed Setup builds. A downloaded installer is validated against its platform manifest, byte size, and SHA-256 before the detached updater installs it and restarts Achan.
-- Separate Windows 7 and Windows 10/11 release packages.
+آچان از چند بخش تشکیل شده که در کنار یکدیگر کار می‌کنند:
 
-## Download and update
+1. **DNS امن:** درخواست‌های DNS از طریق DNS over HTTPS به سرویس `sky.rethinkdns.com` ارسال می‌شوند.
+2. **پراکسی محلی:** یک پراکسی HTTP روی آدرس `127.0.0.1:4525` اجرا می‌شود.
+3. **تونل شبکه:** ابزار `tun2proxy` و درایور Wintun برای ایجاد لایه مسیریابی TUN استفاده می‌شوند.
+4. **مدیریت اتصال:** آچان وضعیت اجزای شبکه را بررسی می‌کند و هنگام قطع اتصال، برای بازیابی کنترل‌شده تنظیمات و مسیرهای شبکه تلاش می‌کند.
 
-Open the repository's [Releases page](https://github.com/Amirfaraji86/Achan-Desktop/releases) and select the package matching your Windows edition. Each platform release provides a Setup installer, Portable archive, Distribution archive, and a platform-specific update manifest.
+## 📥 دانلود و نصب
 
-Installed Setup builds periodically check for a newer stable release and also provide a manual **Check for updates** action in the application. Windows may display a UAC confirmation because Achan's installer requires administrator privileges. Achan does not bypass Windows security prompts. Portable builds are not replaced in place by the updater.
+برای دریافت آخرین نسخه‌ها به صفحه Releases مخزن مراجعه کن:
 
-**One-time migration:** version 1.0.3 did not include the updater. Users on 1.0.3 must manually install version 1.1.0 once; subsequent updates can be handled by the in-app updater.
+🔗 [دانلود نسخه‌های Achan](https://github.com/Amirfaraji86/Achan-Desktop/releases)
 
-## How Achan works
+نسخه متناسب با سیستم‌عامل خود را انتخاب کن:
 
-1. The application starts a local HTTP proxy.
-2. DNS preflight uses DNS-over-HTTPS.
-3. `tun2proxy` and Wintun create the TUN routing layer.
-4. Achan monitors the tunnel process and attempts graceful route restoration on shutdown.
+- **Windows 10 & 11:** نسخه مخصوص ویندوزهای جدید.
+- **Windows 7 SP1:** نسخه سازگار با ویندوز ۷ سرویس‌پک ۱.
 
-The proxy is local-only and does not provide a remote VPN relay. It does not hide the public IP address or relay arbitrary UDP traffic. Online games, voice calls, QUIC/HTTP3, and other UDP-dependent applications may not work as expected. Website availability is not guaranteed and depends on the network, ISP, and DoH service.
+برای هر پلتفرم، سه نوع خروجی ارائه می‌شود:
 
-## Automated release process
+| نوع فایل | توضیح |
+|---|---|
+| Setup | نصب‌کننده معمولی ویندوز |
+| Portable | نسخه قابل‌حمل، بدون فرایند نصب |
+| Distribution | بسته کامل شامل فایل‌های اصلی و راهنما |
 
-The two workflows in `.github/workflows/` are:
+فایل Manifest مربوط به هر پلتفرم نیز برای اعتبارسنجی به‌روزرسانی‌ها ارائه می‌شود.
 
-- `build-windows.yml` — Windows 10/11 x64, Python 3.13.
-- `build-windows7.yml` — Windows 7 SP1 x64, Python 3.8.10 and pinned compatible dependencies.
+برای فعال‌کردن تونل شبکه، برنامه به دسترسی Administrator نیاز دارد. ممکن است ویندوز درخواست UAC نمایش دهد.
 
-To publish a release, update the code and `RELEASE_NOTES_FA.md`, then run `scripts/publish-release.ps1 -Version X.Y.Z -CommitAndPush` in PowerShell from the repository root. The script synchronizes the Python, Windows version-resource, and Inno Setup versions, then commits and pushes to `main`. Both workflows detect the version change, build their packages, generate platform manifests, and create their own tags and GitHub Releases:
+## 🔄 به‌روزرسانی خودکار
 
-- `vX.Y.Z-win10-11`
-- `vX.Y.Z-win7`
+نسخه‌های نصب‌شده Achan دارای سیستم AutoUpdater هستند.
 
-Do not create tags or releases manually and do not upload release assets in a separate step. A normal code push without a version change skips the build and release steps.
+این سیستم به‌صورت دوره‌ای نسخه‌های جدید را از GitHub Releases بررسی می‌کند. همچنین امکان بررسی دستی به‌روزرسانی از داخل برنامه وجود دارد.
 
-## Windows 7 prerequisites
+فرایند به‌روزرسانی شامل مراحل زیر است:
 
-The Windows 7 package targets Windows 7 SP1 x64. Microsoft SHA-2 updates KB4474419 and KB4490628 must be installed before the signed driver can be loaded, and Windows should be restarted afterward. The installer includes the Visual C++ 2015–2019 runtime when needed.
+1. بررسی نسخه جدید در کانال پایدار مربوط به سیستم‌عامل.
+2. دریافت Manifest مخصوص پلتفرم.
+3. دانلود نصب‌کننده مناسب.
+4. اعتبارسنجی نام فایل، نسخه، اندازه و SHA-256.
+5. خاموش‌کردن کنترل‌شده تونل و بستن برنامه.
+6. اجرای ابزار مستقل نصب‌کننده.
+7. نصب نسخه جدید و اجرای مجدد Achan.
 
-## Logs and privacy
+**نکات مهم:**
 
-Application logs are stored locally at:
+- ممکن است هنگام نصب به‌روزرسانی، ویندوز پنجره UAC نمایش دهد.
+- آچان درخواست‌های امنیتی ویندوز را دور نمی‌زند.
+- نسخه Portable به‌صورت خودکار جایگزین نمی‌شود و باید دستی به‌روزرسانی شود.
+- نسخه 1.0.3 فاقد سیستم AutoUpdater بود؛ بنابراین کاربران این نسخه باید برای اولین ارتقا، نسخه 1.1.0 را دستی نصب کنند. پس از آن، نسخه‌های نصب‌شده می‌توانند از به‌روزرسانی خودکار استفاده کنند.
+
+## ⚠️ محدودیت‌ها و شفافیت
+
+آچان یک VPN با سرور راه‌دور نیست و نباید آن را با سرویس‌های VPN اشتباه گرفت.
+
+- **مخفی‌نکردن IP عمومی:** آچان IP عمومی کاربر را مخفی نمی‌کند.
+- **محدودیت UDP:** پراکسی HTTP مورد استفاده، UDP عمومی را منتقل نمی‌کند.
+- **بازی‌ها و تماس‌ها:** بازی‌های آنلاین، تماس‌های اینترنتی و برنامه‌های وابسته به UDP ممکن است درست کار نکنند.
+- **QUIC و HTTP/3:** بعضی برنامه‌ها و مرورگرها ممکن است با این پروتکل‌ها مشکل داشته باشند.
+- **وابستگی به شبکه:** عملکرد آچان به ISP، مسیر ارتباطی و دسترسی به سرویس DoH بستگی دارد.
+- **بازیابی شبکه:** در صورت بسته‌شدن اجباری یا ناگهانی پردازش تونل، ممکن است بازیابی مسیرهای شبکه کامل نشود.
+
+بازشدن سایت خاص یا عبور از تمام محدودیت‌های اینترنت تضمین‌شده نیست.
+
+## 🪟 پیش‌نیازهای Windows 7
+
+نسخه Windows 7 مخصوص Windows 7 SP1 x64 طراحی شده است.
+
+پیش از نصب درایور امضاشده، به‌روزرسانی‌های SHA-2 مایکروسافت باید نصب شده باشند:
+
+- KB4474419
+- KB4490628
+
+پس از نصب این به‌روزرسانی‌ها، ویندوز باید Restart شود.
+
+در صورت نیاز، نصب‌کننده Runtime مربوط به Visual C++ 2015–2019 را نیز نصب می‌کند.
+
+## 🔐 حریم خصوصی و گزارش‌ها
+
+گزارش‌های فنی برنامه به‌صورت محلی ذخیره می‌شوند و آچان در حالت عادی آن‌ها را به سرور اختصاصی خود ارسال نمی‌کند.
+
+مسیر گزارش اصلی:
 
 ```text
 %LOCALAPPDATA%\Achan\logs\achan.log
 ```
 
-Updater helper logs are stored in the same folder as `updater.log`. Achan does not send diagnostics to a dedicated Achan server. Update metadata and installer packages are requested from the official GitHub repository and its release-asset delivery hosts.
+گزارش ابزار مستقل به‌روزرسانی نیز در همان پوشه و با نام `updater.log` ذخیره می‌شود.
 
-## Third-party components
+اطلاعات نسخه و فایل‌های نصب‌کننده برای بررسی و دریافت به‌روزرسانی از مخزن رسمی GitHub و میزبان‌های ارائه فایل آن دریافت می‌شوند.
+
+توجه داشته باش که درخواست‌های DNS برای پردازش به سرویس DoH انتخاب‌شده ارسال می‌شوند.
+
+## 🧰 فناوری‌ها و پروژه‌های استفاده‌شده
+
+آچان از ابزارها و پروژه‌های زیر استفاده می‌کند:
 
 - [Python](https://www.python.org/)
 - [Tkinter](https://docs.python.org/3/library/tkinter.html)
 - [tun2proxy](https://github.com/tun2proxy/tun2proxy)
 - [Wintun](https://www.wintun.net/)
+- [Web Immortal Guards](https://github.com/mahdisml/WebImmortalGuards)
 - [PyInstaller](https://pyinstaller.org/)
 - [Inno Setup](https://jrsoftware.org/isinfo.php)
 
-License notices are included in `THIRD_PARTY_NOTICES.md` and `licenses/`.
+مجوزها و اطلاعیه‌های مربوط به کتابخانه‌های شخص ثالث در فایل `THIRD_PARTY_NOTICES.md` و پوشه `licenses/` قرار دارند.
+
+## 🏗️ فرایند ساخت و انتشار خودکار
+
+ساخت نسخه‌های آچان از طریق GitHub Actions انجام می‌شود.
+
+دو Workflow اصلی پروژه عبارت‌اند از:
+
+| فایل Workflow | سیستم‌عامل | نسخه Python |
+|---|---|---|
+| `build-windows.yml` | Windows 10/11 x64 | Python 3.13 |
+| `build-windows7.yml` | Windows 7 SP1 x64 | Python 3.8.10 |
+
+برای انتشار نسخه جدید:
+
+1. تغییرات کد را انجام بده.
+2. فایل `RELEASE_NOTES_FA.md` را به‌روزرسانی کن.
+3. مقدار نسخه را با اسکریپت انتشار هماهنگ کن.
+4. اسکریپت زیر را از PowerShell و در ریشه مخزن اجرا کن:
+
+```powershell
+.\scripts\publish-release.ps1 -Version X.Y.Z -CommitAndPush
+```
+
+این اسکریپت نسخه‌های برنامه، اطلاعات فایل اجرایی ویندوز و Inno Setup را هماهنگ می‌کند و تغییرات را Commit و Push می‌کند.
+
+پس از Push، هر دو Workflow تغییر نسخه را تشخیص می‌دهند و در صورت تغییر نسخه:
+
+- فایل‌های اجرایی و نصب‌کننده را می‌سازند.
+- بسته‌های Portable و Distribution را آماده می‌کنند.
+- Manifest مخصوص هر پلتفرم را تولید می‌کنند.
+- Tag و GitHub Release مربوط به همان پلتفرم را ایجاد می‌کنند.
+
+الگوی Tagها:
+
+```text
+vX.Y.Z-win10-11
+vX.Y.Z-win7
+```
+
+**نکته مهم:** Tag و Release را دستی ایجاد نکن و فایل‌های انتشار را جداگانه بارگذاری نکن. انتشار این فایل‌ها باید توسط Workflowهای GitHub Actions انجام شود. Push معمولی که نسخه را تغییر ندهد، مراحل انتشار نسخه جدید را اجرا نمی‌کند.
+
+## 🐛 گزارش مشکل و پیشنهاد
+
+در صورت مشاهده مشکل یا داشتن پیشنهاد برای بهترشدن آچان، از بخش Issues مخزن استفاده کن:
+
+🔗 [ثبت مشکل یا پیشنهاد](https://github.com/Amirfaraji86/Achan-Desktop/issues)
 
 ---
 
-**Achan — Made by Faraj**
+<div align="center">
+
+### 🌿 Achan — ساده، سبک و کاربردی
+
+**Made by Faraj**
+
+</div>
