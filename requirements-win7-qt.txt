@@ -1,0 +1,12 @@
+# Windows 7 SP1 x64 modern UI: Qt 5.15 / PySide2 on Python 3.8.10.
+PySide2==5.15.2.1
+shiboken2==5.15.2.1
+dnspython==2.6.1
+requests==2.32.3
+urllib3==2.2.3
+charset-normalizer==3.3.2
+idna==3.10
+certifi==2026.10.23
+arabic-reshaper==3.0.0
+python-bidi==0.5.2
+PyInstaller==5.13.2
