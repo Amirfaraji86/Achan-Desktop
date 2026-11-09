@@ -1,6 +1,6 @@
 #define AppName "Achan"
 #ifndef AppVersion
-  #define AppVersion "1.1.1"
+  #define AppVersion "1.2.0"
 #endif
 #define AppPublisher "Made by Faraj"
 #define AppExeName "Achan.exe"
@@ -21,7 +21,7 @@ ArchitecturesAllowed=x64os
 #ifdef Win7Build
 MinVersion=6.1sp1
 #else
-MinVersion=10.0
+MinVersion=10.0.17763
 #endif
 ArchitecturesInstallIn64BitMode=x64os
 OutputDir=..\dist
