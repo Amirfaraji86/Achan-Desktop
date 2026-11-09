@@ -110,9 +110,16 @@ jobs:
 
           # PySide6 wheels provide the Qt runtime but do not include windeployqt.
           # Install the matching Qt SDK toolchain so deployment uses the same Qt release.
-          python -m pip install --disable-pip-version-check 'aqtinstall==3.3.0'
+          python -m pip install --disable-pip-version-check --force-reinstall "git+https://github.com/miurahr/aqtinstall.git@f383b3c7d9658e881bd8ce8810057393bd934ee1"
           if ($LASTEXITCODE -ne 0) { throw 'Installing aqtinstall failed.' }
+          $availableQtArchitectures = & aqt list-qt windows desktop --arch 6.12.0
+          if ($LASTEXITCODE -ne 0) {
+              throw 'aqtinstall could not read Qt 6.12.0 metadata.'
+          }
 
+          if (($availableQtArchitectures -join ' ') -notmatch 'win64_msvc2022_64') {
+              throw 'Qt 6.12.0 MSVC 2022 x64 architecture is not available.'
+          }
           aqt install-qt windows desktop 6.12.0 win64_msvc2022_64 --outputdir $qtInstallRoot
           if ($LASTEXITCODE -ne 0) { throw 'Installing the Qt 6.12.0 MSVC 2022 SDK failed.' }
 
