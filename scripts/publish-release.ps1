@@ -23,51 +23,70 @@ try {
         throw "Git remote 'origin' is not configured."
     }
 
-    $mainPath = Join-Path $repoRoot 'main.py'
-    $versionInfoPath = Join-Path $repoRoot 'version_info.txt'
-    $notesPath = Join-Path $repoRoot 'RELEASE_NOTES_FA.md'
+    $sourcePaths = @(
+        (Join-Path $repoRoot 'main.py'),
+        (Join-Path $repoRoot 'main_qt.py'),
+        (Join-Path $repoRoot 'main_qt_win7.py')
+    )
+    $versionInfoPaths = @(
+        (Join-Path $repoRoot 'version_info.txt'),
+        (Join-Path $repoRoot 'version_info_win7.txt')
+    )
+    $notesPaths = @(
+        (Join-Path $repoRoot 'RELEASE_NOTES_FA.md'),
+        (Join-Path $repoRoot 'RELEASE_NOTES_WIN7_FA.md')
+    )
     $statusPath = Join-Path $repoRoot 'PROJECT_STATUS.txt'
     $installerPath = Join-Path $repoRoot 'installer\Achan.iss'
 
-    $mainText = [System.IO.File]::ReadAllText($mainPath, [System.Text.Encoding]::UTF8)
     $appVersionPattern = 'APP_VERSION\s*=\s*["''](?<version>\d+\.\d+\.\d+)["'']'
-    $appVersionMatch = [regex]::Match($mainText, $appVersionPattern)
-    if (-not $appVersionMatch.Success) {
-        throw 'Could not find APP_VERSION in main.py.'
+    $currentVersions = @()
+    foreach ($sourcePath in $sourcePaths) {
+        $sourceText = [System.IO.File]::ReadAllText($sourcePath, [System.Text.Encoding]::UTF8)
+        $appVersionMatches = [regex]::Matches($sourceText, $appVersionPattern)
+        if ($appVersionMatches.Count -ne 1) {
+            throw "Could not safely find exactly one APP_VERSION in $sourcePath."
+        }
+        $currentVersions += [version]$appVersionMatches[0].Groups['version'].Value
     }
-    $currentVersion = $appVersionMatch.Groups['version'].Value
-    if ([version]$Version -le [version]$currentVersion) {
+    $currentVersion = ($currentVersions | Sort-Object -Descending | Select-Object -First 1)
+    if ([version]$Version -le $currentVersion) {
         throw "New version must be greater than current version $currentVersion."
     }
 
     $newTuple = ($Version.Split('.') -join ', ') + ', 0'
-    $mainText = ([regex]::new($appVersionPattern)).Replace(
-        $mainText,
-        ('APP_VERSION = "' + $Version + '"'),
-        1
-    )
-    [System.IO.File]::WriteAllText($mainPath, $mainText, [System.Text.UTF8Encoding]::new($false))
-
-    $versionInfo = [System.IO.File]::ReadAllText($versionInfoPath, [System.Text.Encoding]::UTF8)
-    foreach ($field in @('filevers', 'prodvers')) {
-        $pattern = "(?<prefix>$field\s*=\s*)\([0-9,\s]+\)"
-        if ([regex]::Matches($versionInfo, $pattern).Count -ne 1) {
-            throw "Could not safely update $field in version_info.txt."
-        }
-        $versionInfo = ([regex]::new($pattern)).Replace($versionInfo, ('$1(' + $newTuple + ')'), 1)
-    }
-    foreach ($field in @('FileVersion', 'ProductVersion')) {
-        $pattern = "StringStruct\('$field',\s*'\d+\.\d+\.\d+'\)"
-        if ([regex]::Matches($versionInfo, $pattern).Count -ne 1) {
-            throw "Could not safely update $field in version_info.txt."
-        }
-        $versionInfo = ([regex]::new($pattern)).Replace(
-            $versionInfo,
-            ("StringStruct('$field', '$Version')"),
+    foreach ($sourcePath in $sourcePaths) {
+        $sourceText = [System.IO.File]::ReadAllText($sourcePath, [System.Text.Encoding]::UTF8)
+        $sourceText = ([regex]::new($appVersionPattern)).Replace(
+            $sourceText,
+            ('APP_VERSION = "' + $Version + '"'),
             1
         )
+        [System.IO.File]::WriteAllText($sourcePath, $sourceText, [System.Text.UTF8Encoding]::new($false))
     }
-    [System.IO.File]::WriteAllText($versionInfoPath, $versionInfo, [System.Text.UTF8Encoding]::new($false))
+
+    foreach ($versionInfoPath in $versionInfoPaths) {
+        $versionInfo = [System.IO.File]::ReadAllText($versionInfoPath, [System.Text.Encoding]::UTF8)
+        foreach ($field in @('filevers', 'prodvers')) {
+            $pattern = "(?<prefix>$field\s*=\s*)\([0-9,\s]+\)"
+            if ([regex]::Matches($versionInfo, $pattern).Count -ne 1) {
+                throw "Could not safely update $field in $versionInfoPath."
+            }
+            $versionInfo = ([regex]::new($pattern)).Replace($versionInfo, ('$1(' + $newTuple + ')'), 1)
+        }
+        foreach ($field in @('FileVersion', 'ProductVersion')) {
+            $pattern = "StringStruct\('$field',\s*'\d+\.\d+\.\d+'\)"
+            if ([regex]::Matches($versionInfo, $pattern).Count -ne 1) {
+                throw "Could not safely update $field in $versionInfoPath."
+            }
+            $versionInfo = ([regex]::new($pattern)).Replace(
+                $versionInfo,
+                ("StringStruct('$field', '$Version')"),
+                1
+            )
+        }
+        [System.IO.File]::WriteAllText($versionInfoPath, $versionInfo, [System.Text.UTF8Encoding]::new($false))
+    }
 
     $installer = [System.IO.File]::ReadAllText($installerPath, [System.Text.Encoding]::UTF8)
     $installerPattern = '(?m)^  #define AppVersion "\d+\.\d+\.\d+"$'
@@ -77,7 +96,8 @@ try {
     $installer = ([regex]::new($installerPattern)).Replace($installer, ('  #define AppVersion "' + $Version + '"'), 1)
     [System.IO.File]::WriteAllText($installerPath, $installer, [System.Text.UTF8Encoding]::new($false))
 
-    if (Test-Path $notesPath) {
+    foreach ($notesPath in $notesPaths) {
+        if (-not (Test-Path $notesPath)) { continue }
         $notes = [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8)
         $notes = ([regex]::new('^# Achan \d+\.\d+\.\d+')).Replace($notes, ('# Achan ' + $Version), 1)
         [System.IO.File]::WriteAllText($notesPath, $notes, [System.Text.UTF8Encoding]::new($false))

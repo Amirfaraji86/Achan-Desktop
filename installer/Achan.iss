@@ -1,6 +1,6 @@
 #define AppName "Achan"
 #ifndef AppVersion
-  #define AppVersion "1.2.0"
+  #define AppVersion "1.2.3"
 #endif
 #define AppPublisher "Made by Faraj"
 #define AppExeName "Achan.exe"

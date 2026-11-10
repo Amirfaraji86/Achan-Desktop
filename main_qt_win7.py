@@ -23,7 +23,7 @@ from core.controller_win7 import Win7NetworkController
 from core.update_client import UpdateClient, UpdateInfo, installed_by_setup
 
 APP_NAME = "Achan"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
 DATA_DIR = LOCAL_APP_DATA / APP_NAME
