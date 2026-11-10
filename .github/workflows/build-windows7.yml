@@ -8,6 +8,7 @@ on:
       - 'main_qt_win7.py'
       - 'qt_ui_win7/**'
       - 'tools/validate_qml_win7.py'
+      - 'tools/validate_packaged_ui.py'
       - 'tools/patch_tun2proxy_win7.py'
       - 'requirements-win7-qt.txt'
       - 'version_info_win7.txt'
@@ -275,6 +276,8 @@ jobs:
 
           $app = Join-Path $env:GITHUB_WORKSPACE 'dist\Achan'
           if (-not (Test-Path (Join-Path $app 'Achan.exe'))) { throw 'Win7 Achan.exe was not produced.' }
+          python tools/validate_packaged_ui.py --source qt_ui_win7/main.qml --app-dir $app --relative-path qt_ui_win7/main.qml
+          if ($LASTEXITCODE -ne 0) { throw 'The frozen Windows 7 application does not contain the reviewed Qt Quick interface.' }
 
           # PyInstaller's PySide2 hook collects Qt binaries. Copy Qt 5.15 QML
           # import modules explicitly so the Win7 QML engine can resolve Controls.

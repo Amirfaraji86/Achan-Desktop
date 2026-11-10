@@ -79,7 +79,7 @@ class _RTLButton(tk.Button):
 tk.Label = _RTLLabel
 tk.Button = _RTLButton
 
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.2.4"
 APP_NAME = "Achan"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
