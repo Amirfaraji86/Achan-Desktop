@@ -19,12 +19,12 @@ Window {
     property string pendingPage: "dashboard"
     property string dialogMode: ""
     property color green: "#39E783"
-    property color bg: "#080D0A"
-    property color panel: "#101914"
-    property color panel2: "#0D1511"
-    property color border: "#263D30"
-    property color textPrimary: "#EDF5EF"
-    property color textMuted: "#8FA296"
+    property color bg: "#0B0F0D"
+    property color panel: "#121A15"
+    property color panel2: "#151E19"
+    property color border: "#29372F"
+    property color textPrimary: "#E8F0EA"
+    property color textMuted: "#A3B2A8"
 
     function tr(fa, en) { return bridge.language === "fa" ? fa : en }
 
@@ -226,14 +226,18 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#090F0B"
+                color: "#0B100D"
+                // Mirror the application workspace for Persian without moving
+                // the title bar or its existing window controls.
+                LayoutMirroring.enabled: bridge.language === "fa"
+                LayoutMirroring.childrenInherit: true
 
                 // Lightweight decorative particles: visual ambience only, no network telemetry.
                 Canvas {
                     id: particleField
                     anchors.fill: parent
                     z: 0
-                    opacity: 0.48
+                    opacity: 0.12
                     property var particles: []
 
                     function initializeParticles() {
@@ -396,8 +400,8 @@ Window {
                                     Layout.preferredHeight: 46
                                     Column {
                                         spacing: 2
-                                        Text { text: window.tr("داشبورد", "Dashboard"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 19; font.bold: true }
-                                        Text { text: window.tr("مدیریت و کنترل اتصال آچان", "Manage and control your Achan connection"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9 }
+                                        Text { text: window.tr("داشبورد", "Dashboard"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 21; font.bold: true }
+                                        Text { text: window.tr("مدیریت و کنترل اتصال آچان", "Manage and control your Achan connection"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
                                     }
                                     Item { Layout.fillWidth: true }
                                     StatusPill { }
@@ -442,7 +446,9 @@ Window {
                                                     id: powerGlow
                                                     width: 190; height: 190
                                                     anchors.centerIn: parent
-                                                    opacity: bridge.isConnected ? 0.78 : bridge.isBusy ? 0.62 : 0.34
+                                                    // Show the halo only after the backend confirms a live connection.
+                                                    visible: bridge.isConnected
+                                                    opacity: bridge.isConnected ? 0.78 : 0.0
                                                     onPaint: {
                                                         var c = getContext("2d")
                                                         c.clearRect(0, 0, width, height)
@@ -474,11 +480,12 @@ Window {
                                                     width: 164; height: 164; radius: 82
                                                     anchors.centerIn: parent
                                                     color: window.connectionAccentSoft()
-                                                    opacity: bridge.isConnected ? 0.92 : bridge.isBusy ? 0.78 : 0.60
+                                                    visible: bridge.isConnected
+                                                    opacity: bridge.isConnected ? 0.92 : 0.0
                                                     Behavior on opacity { NumberAnimation { duration: 300 } }
                                                     Behavior on color { ColorAnimation { duration: 220 } }
                                                     SequentialAnimation on scale {
-                                                        running: bridge.isConnected || bridge.isBusy
+                                                        running: bridge.isConnected
                                                         loops: Animation.Infinite
                                                         NumberAnimation { to: 1.035; duration: 1100; easing.type: Easing.InOutSine }
                                                         NumberAnimation { to: 1.0; duration: 1100; easing.type: Easing.InOutSine }
@@ -488,6 +495,7 @@ Window {
                                                     id: powerRings
                                                     width: 154; height: 154
                                                     anchors.centerIn: parent
+                                                    visible: bridge.isConnected
                                                     onPaint: {
                                                         var c = getContext("2d")
                                                         c.clearRect(0, 0, width, height)
@@ -502,8 +510,8 @@ Window {
                                                         c.globalAlpha = 1
                                                     }
                                                     NumberAnimation on rotation {
-                                                        running: bridge.isBusy || bridge.isConnected
-                                                        from: 0; to: 360; duration: bridge.isBusy ? 1450 : 5200; loops: Animation.Infinite
+                                                        running: bridge.isConnected
+                                                        from: 0; to: 360; duration: 5200; loops: Animation.Infinite
                                                     }
                                                     Behavior on rotation { NumberAnimation { duration: 180 } }
                                                 }
@@ -1073,7 +1081,7 @@ Window {
                 text: navRoot.label
                 color: navRoot.selected ? "#EAF5ED" : mouse.containsMouse ? "#D5E8D9" : "#A9B8AE"
                 font.family: "Segoe UI"
-                font.pixelSize: 10
+                font.pixelSize: 11
                 Behavior on color { ColorAnimation { duration: 160 } }
                 Layout.fillWidth: true
                 verticalAlignment: Text.AlignVCenter
@@ -1106,8 +1114,8 @@ Window {
         Layout.fillWidth: true; Layout.preferredHeight: 48
         Column {
             spacing: 2
-            Text { text: parent.parent.titleText; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 19; font.bold: true }
-            Text { text: parent.parent.subtitleText; color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9 }
+            Text { text: parent.parent.titleText; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 21; font.bold: true }
+            Text { text: parent.parent.subtitleText; color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
         }
     }
 
@@ -1149,7 +1157,7 @@ Window {
         Behavior on scale { NumberAnimation { duration: 125; easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: 160 } }
         Behavior on border.color { ColorAnimation { duration: 160 } }
-        Text { anchors.centerIn: parent; text: parent.label; color: parent.selected ? window.green : "#BBC9BF"; font.family: "Segoe UI"; font.pixelSize: 9; font.bold: parent.selected }
+        Text { anchors.centerIn: parent; text: parent.label; color: parent.selected ? window.green : "#BBC9BF"; font.family: "Segoe UI"; font.pixelSize: 10; font.bold: parent.selected }
         MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
 
@@ -1166,7 +1174,7 @@ Window {
         Behavior on scale { NumberAnimation { duration: 125; easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: 160 } }
         Behavior on border.color { ColorAnimation { duration: 160 } }
-        Text { id: buttonText; anchors.centerIn: parent; text: parent.label; color: "#F0F8F2"; font.family: "Segoe UI"; font.pixelSize: 9; font.bold: true }
+        Text { id: buttonText; anchors.centerIn: parent; text: parent.label; color: "#F0F8F2"; font.family: "Segoe UI"; font.pixelSize: 10; font.bold: true }
         MouseArea { id: mouse; anchors.fill: parent; enabled: parent.enabled; hoverEnabled: true; cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: parent.clicked() }
     }
 
