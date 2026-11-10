@@ -12,5 +12,3 @@ Achan is a Windows desktop front end and local integration of the Web Immortal G
 - **Python, dnspython, requests, PyInstaller and Tcl/Tk** — the executable is produced with PyInstaller; the relevant package licenses remain with their bundled distributions and upstream projects.
 
 The installers bundle the application runtime; users do not need a separate Python installation. All builds require Administrator approval when the system tunnel is enabled. The Windows 7 build specifically targets Windows 7 SP1 x64.
-
-- **tproxy-config v7.0.9** — dependency of tun2proxy, declared MIT-licensed upstream. The Windows 7 build applies one local, narrowly scoped change to `src/windows.rs`: it passes the interface alias as a normal process argument and lets Rust's `Command` API handle quoting. The dependency version and upstream tun2proxy tag are pinned in the Windows 7 workflow.

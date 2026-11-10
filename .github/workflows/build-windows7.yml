@@ -8,7 +8,6 @@ on:
       - 'main_qt_win7.py'
       - 'qt_ui_win7/**'
       - 'tools/validate_qml_win7.py'
-      - 'tools/patch_tun2proxy_win7.py'
       - 'requirements-win7-qt.txt'
       - 'version_info_win7.txt'
       - 'RELEASE_NOTES_WIN7_FA.md'
@@ -69,34 +68,18 @@ jobs:
           if ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:EVENT_BEFORE -and
               $env:EVENT_BEFORE -notmatch '^0+$') {
             $previousRef = "$($env:EVENT_BEFORE):main_qt_win7.py"
-
-            # The Qt-based Win7 entry point is being introduced in this commit.
-            # The parent commit may not contain that path yet. Check it before
-            # calling git show, and always clear a non-zero native exit code
-            # when the file is legitimately absent.
-            git rev-parse --verify --quiet $previousRef 2>$null | Out-Null
-            $previousFileExists = ($LASTEXITCODE -eq 0)
-            $LASTEXITCODE = 0
-
-            if ($previousFileExists) {
-              $previousSource = git show $previousRef 2>$null | Out-String
-              if ($LASTEXITCODE -ne 0) {
-                throw "Could not read previous Windows 7 source at $previousRef."
+            $previousSource = git show $previousRef 2>$null | Out-String
+            if ($previousSource -match 'APP_VERSION\s*=\s*["''](?<previousVersion>\d+\.\d+\.\d+)["'']') {
+              $previousVersionText = $Matches.previousVersion
+              $currentSemVer = [version]$version
+              $previousSemVer = [version]$previousVersionText
+              if ($currentSemVer -lt $previousSemVer) {
+                throw "APP_VERSION cannot move backwards from $previousVersionText to $version."
               }
-              if ($previousSource -match 'APP_VERSION\s*=\s*["''](?<previousVersion>\d+\.\d+\.\d+)["'']') {
-                $previousVersionText = $Matches.previousVersion
-                $currentSemVer = [version]$version
-                $previousSemVer = [version]$previousVersionText
-                if ($currentSemVer -lt $previousSemVer) {
-                  throw "APP_VERSION cannot move backwards from $previousVersionText to $version."
-                }
-                if ($currentSemVer -eq $previousSemVer) {
-                  $shouldBuild = $false
-                  Write-Host "APP_VERSION remains $version; this push is not a release. Skipping build."
-                }
+              if ($currentSemVer -eq $previousSemVer) {
+                $shouldBuild = $false
+                Write-Host "APP_VERSION remains $version; this push is not a release. Skipping build."
               }
-            } else {
-              Write-Host 'No previous main_qt_win7.py exists; treating this as the initial Qt-based Windows 7 release.'
             }
           }
 
@@ -198,54 +181,6 @@ jobs:
             throw 'Microsoft Visual C++ 2019 Redistributable signature verification failed.'
           }
 
-      - name: Install Rust nightly with rust-src for Win7 target
-        if: steps.resolve.outputs.should_build == 'true'
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-
-      - name: Rebuild pinned tun2proxy with Windows 7 DNS fix
-        if: steps.resolve.outputs.should_build == 'true'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $source = Join-Path $env:RUNNER_TEMP 'tun2proxy-v0.8.7'
-          if (Test-Path $source) { Remove-Item $source -Recurse -Force }
-          git clone --depth 1 --branch v0.8.7 https://github.com/tun2proxy/tun2proxy.git $source
-          if ($LASTEXITCODE -ne 0) { throw 'Could not clone pinned tun2proxy v0.8.7 source.' }
-          $sourceSha = (git -C $source rev-parse HEAD).Trim()
-          if ($sourceSha -ne 'b7cd433a25bcd131e7994163874bbbad4834eb3e') { throw "Unexpected tun2proxy source commit: $sourceSha" }
-
-          $manifestPath = Join-Path $source 'Cargo.toml'
-          $manifest = [System.IO.File]::ReadAllText($manifestPath)
-          $oldDependency = 'tproxy-config = { version = "^7.0.9", default-features = false }'
-          $newDependency = 'tproxy-config = { version = "=7.0.9", default-features = false }'
-          if ($manifest.Contains($newDependency)) {
-            # Already pinned.
-          } elseif ($manifest.Contains($oldDependency) -and $manifest.IndexOf($oldDependency) -eq $manifest.LastIndexOf($oldDependency)) {
-            $manifest = $manifest.Replace($oldDependency, $newDependency)
-            [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
-          } else {
-            throw 'The expected tproxy-config dependency declaration changed; review the patch before building.'
-          }
-
-          $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-          Push-Location $source
-          try {
-            cargo +nightly fetch --target x86_64-win7-windows-msvc
-            if ($LASTEXITCODE -ne 0) { throw 'Fetching pinned tun2proxy Rust dependencies failed.' }
-            python "$env:GITHUB_WORKSPACE\tools\patch_tun2proxy_win7.py" --cargo-home $cargoHome
-            if ($LASTEXITCODE -ne 0) { throw 'Applying the Windows 7 netsh argument patch failed.' }
-            cargo +nightly build --release -Z build-std --target x86_64-win7-windows-msvc --locked
-            if ($LASTEXITCODE -ne 0) { throw 'Building the patched Windows 7 tun2proxy engine failed.' }
-          } finally {
-            Pop-Location
-          }
-
-          $builtEngine = Join-Path $source 'target\x86_64-win7-windows-msvc\release\tun2proxy-bin.exe'
-          if (-not (Test-Path $builtEngine)) { throw 'Patched tun2proxy-bin.exe was not produced.' }
-          Copy-Item $builtEngine (Join-Path $env:GITHUB_WORKSPACE 'bin\tun2proxy-bin.exe') -Force
-          Get-FileHash (Join-Path $env:GITHUB_WORKSPACE 'bin\tun2proxy-bin.exe') -Algorithm SHA256
       - name: Build modern Qt Quick Achan for Windows 7 (PySide2 / Qt 5.15)
         if: steps.resolve.outputs.should_build == 'true'
         shell: pwsh
