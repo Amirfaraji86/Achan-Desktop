@@ -8,6 +8,7 @@ on:
       - 'main_qt.py'
       - 'qt_ui/**'
       - 'tools/validate_qml.py'
+      - 'tools/validate_packaged_ui.py'
       - 'core/**'
       - 'assets/**'
       - 'installer/**'
@@ -244,6 +245,8 @@ jobs:
 
           $app = Join-Path $env:GITHUB_WORKSPACE 'dist\Achan'
           if (-not (Test-Path (Join-Path $app 'Achan.exe'))) { throw 'Achan.exe was not produced.' }
+          python tools/validate_packaged_ui.py --source qt_ui/main.qml --app-dir $app --relative-path qt_ui/main.qml
+          if ($LASTEXITCODE -ne 0) { throw 'The frozen application does not contain the reviewed Qt Quick interface.' }
 
           # PyInstaller's bootloader executable does not directly link to Qt DLLs.
           # Qt for Python therefore documents running windeployqt on the Qt DLLs
