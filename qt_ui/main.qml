@@ -310,14 +310,15 @@ Window {
                     onTriggered: particleField.advance()
                 }
 
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 14
+                    anchors.margins: 12
+                    spacing: 10
                     z: 1
 
                     // Left navigation rail.
                     Rectangle {
+                        visible: false
                         Layout.preferredWidth: 194
                         Layout.fillHeight: true
                         radius: 15
@@ -384,7 +385,9 @@ Window {
                     StackLayout {
                         id: pages
                         Layout.fillWidth: true
+                        Layout.maximumWidth: 960
                         Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignHCenter
                         currentIndex: window.pageIndex()
                         opacity: 1.0
                         transformOrigin: Item.Center
@@ -409,7 +412,7 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    Layout.minimumHeight: 430
+                                    Layout.minimumHeight: 390
                                     spacing: 12
 
                                     Rectangle {
@@ -722,38 +725,48 @@ Window {
                                 anchors.fill: parent; spacing: 14
                                 PageHeading { titleText: window.tr("تنظیمات", "Settings"); subtitleText: window.tr("ترجیحات رابط و به‌روزرسانی", "Interface and update preferences") }
                                 Rectangle {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 104
+                                    radius: 15; color: "#111913"; border.color: window.border
+                                    Behavior on border.color { ColorAnimation { duration: 260 } }
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.margins: 16; spacing: 12
+                                        ColumnLayout {
+                                            Layout.fillWidth: true; spacing: 4
+                                            Text { text: window.tr("زبان برنامه", "Application language"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 13; font.bold: true }
+                                            Text { text: window.tr("زبان نمایش و جهت چیدمان را انتخاب کن.", "Choose the display language and layout direction."); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                                        }
+                                        SmallButton { label: "فارسی"; selected: bridge.language === "fa"; onClicked: { if (bridge.language !== "fa") bridge.toggleLanguage() } }
+                                        SmallButton { label: "English"; selected: bridge.language === "en"; onClicked: { if (bridge.language !== "en") bridge.toggleLanguage() } }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true; Layout.preferredHeight: 116
+                                    radius: 15; color: "#111913"; border.color: window.border
+                                    Behavior on border.color { ColorAnimation { duration: 260 } }
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.margins: 16; spacing: 12
+                                        ColumnLayout {
+                                            Layout.fillWidth: true; spacing: 4
+                                            Text { text: window.tr("به‌روزرسانی خودکار", "Automatic updates"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 13; font.bold: true }
+                                            Text { text: window.tr("انتشار رسمی GitHub روزی یک‌بار بررسی می‌شود.", "Official GitHub releases are checked once per day."); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                                        }
+                                        Switch {
+                                            checked: bridge.autoUpdateChecks
+                                            onToggled: bridge.setAutoUpdateChecks(checked)
+                                        }
+                                    }
+                                }
+                                Rectangle {
                                     Layout.fillWidth: true; Layout.fillHeight: true
-                                    radius: 17; color: "#D0101A14"; border.color: window.border
+                                    radius: 15; color: "#111913"; border.color: window.border
                                     Behavior on border.color { ColorAnimation { duration: 260 } }
                                     ColumnLayout {
-                                        anchors.fill: parent; anchors.margins: 22; spacing: 18
-                                        Text { text: window.tr("زبان برنامه", "Application language"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 13; font.bold: true }
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            Text { text: window.tr("زبان نمایش را انتخاب کن.", "Choose the display language."); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9; Layout.fillWidth: true }
-                                            SmallButton { label: "فارسی"; selected: bridge.language === "fa"; onClicked: { if (bridge.language !== "fa") bridge.toggleLanguage() } }
-                                            SmallButton { label: "English"; selected: bridge.language === "en"; onClicked: { if (bridge.language !== "en") bridge.toggleLanguage() } }
-                                        }
-                                        DividerLine { }
-                                        Text { text: window.tr("به‌روزرسانی", "Updates"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 13; font.bold: true }
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            ColumnLayout {
-                                                Layout.fillWidth: true; spacing: 3
-                                                Text { text: window.tr("بررسی خودکار نسخه جدید", "Automatically check for updates"); color: "#D6E2D9"; font.family: "Segoe UI"; font.pixelSize: 10 }
-                                                Text { text: window.tr("برای نسخه نصب‌شده، روزانه انتشار رسمی GitHub بررسی می‌شود.", "Installed builds check the official GitHub release channel once per day."); color: "#778B7D"; font.family: "Segoe UI"; font.pixelSize: 8; wrapMode: Text.WordWrap }
-                                            }
-                                            Switch {
-                                                checked: bridge.autoUpdateChecks
-                                                onToggled: bridge.setAutoUpdateChecks(checked)
-                                            }
-                                        }
-                                        DividerLine { }
+                                        anchors.fill: parent; anchors.margins: 16; spacing: 8
                                         Text { text: window.tr("اطلاعات اتصال", "Connection details"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 13; font.bold: true }
+                                        DividerLine { }
                                         InfoRow { label: window.tr("پراکسی محلی", "Local proxy"); value: "127.0.0.1:4525" }
                                         InfoRow { label: window.tr("DNS", "DNS"); value: "DNS over HTTPS" }
                                         InfoRow { label: window.tr("مسیریابی", "Routing"); value: "TCP / TUN" }
-                                        Item { Layout.fillHeight: true }
                                     }
                                 }
                             }
@@ -795,6 +808,8 @@ Window {
                                                 text: bridge.updateNotes
                                                 color: "#B7C8BC"; font.family: "Segoe UI"; font.pixelSize: 9
                                                 background: Rectangle { color: "#0B120D"; radius: 10; border.color: "#24392A" }
+                                                LayoutMirroring.enabled: false
+                                                horizontalAlignment: TextEdit.AlignLeft
                                             }
                                         }
                                         ProgressBar {
@@ -861,10 +876,32 @@ Window {
                                             width: parent.width; text: bridge.diagnosticsText; readOnly: true; selectByMouse: true
                                             wrapMode: TextEdit.Wrap; color: "#B5C9BA"; selectedTextColor: "#07110A"; selectionColor: window.green
                                             font.family: "Consolas"; font.pixelSize: 9; background: null
+                                            LayoutMirroring.enabled: false
+                                            horizontalAlignment: TextEdit.AlignLeft
                                         }
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 960
+                        Layout.preferredHeight: 64
+                        Layout.alignment: Qt.AlignHCenter
+                        radius: 14
+                        color: "#101713"
+                        border.color: window.border
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            spacing: 3
+                            BottomNavItem { Layout.fillWidth: true; label: window.tr("داشبورد", "Dashboard"); glyph: "⌂"; selected: window.currentPage === "dashboard"; onClicked: window.navigateTo("dashboard") }
+                            BottomNavItem { Layout.fillWidth: true; label: window.tr("تنظیمات", "Settings"); glyph: "⚙"; selected: window.currentPage === "settings"; onClicked: window.navigateTo("settings") }
+                            BottomNavItem { Layout.fillWidth: true; label: window.tr("به‌روزرسانی", "Updates"); glyph: "↻"; selected: window.currentPage === "updates"; onClicked: window.navigateTo("updates") }
+                            BottomNavItem { Layout.fillWidth: true; label: window.tr("درباره", "About"); glyph: "ⓘ"; selected: window.currentPage === "about"; onClicked: window.navigateTo("about") }
+                            BottomNavItem { Layout.fillWidth: true; label: window.tr("گزارش‌ها", "Logs"); glyph: "≡"; selected: window.currentPage === "diagnostics"; onClicked: { window.navigateTo("diagnostics"); bridge.refreshDiagnostics() } }
                         }
                     }
                 }
@@ -1091,6 +1128,41 @@ Window {
         MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: navRoot.clicked() }
     }
 
+    component BottomNavItem: Rectangle {
+        id: bottomNavRoot
+        property string label: ""
+        property string glyph: ""
+        property bool selected: false
+        signal clicked()
+        implicitHeight: 54
+        radius: 10
+        color: selected ? "#173A25" : mouse.containsMouse ? "#14251A" : "transparent"
+        border.width: selected ? 1 : 0
+        border.color: selected ? "#2D7447" : "transparent"
+        Behavior on color { ColorAnimation { duration: 180 } }
+        Behavior on border.color { ColorAnimation { duration: 180 } }
+        Column {
+            anchors.centerIn: parent
+            spacing: 2
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: bottomNavRoot.glyph
+                color: bottomNavRoot.selected ? window.green : mouse.containsMouse ? "#B5F5C9" : "#8CA094"
+                font.family: "Segoe UI Symbol"
+                font.pixelSize: 17
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: bottomNavRoot.label
+                color: bottomNavRoot.selected ? "#EAF5ED" : mouse.containsMouse ? "#D5E8D9" : "#A9B8AE"
+                font.family: "Segoe UI"
+                font.pixelSize: 10
+                elide: Text.ElideRight
+            }
+        }
+        MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: bottomNavRoot.clicked() }
+    }
+
     component StatusPill: Rectangle {
         width: 104; height: 30; radius: 10
         color: bridge.isConnected ? "#153A25" : bridge.isBusy ? "#392E19" : "#32191D"
@@ -1129,7 +1201,7 @@ Window {
             text: parent.label
             color: "#91A397"
             font.family: "Segoe UI"
-            font.pixelSize: 9
+            font.pixelSize: 10
             Layout.fillWidth: true
             horizontalAlignment: bridge.language === "fa" ? Text.AlignRight : Text.AlignLeft
         }
@@ -1137,8 +1209,9 @@ Window {
             text: parent.value
             color: window.textPrimary
             font.family: "Segoe UI"
-            font.pixelSize: 9
+            font.pixelSize: 10
             font.bold: true
+            LayoutMirroring.enabled: false
             horizontalAlignment: bridge.language === "fa" ? Text.AlignLeft : Text.AlignRight
         }
     }
