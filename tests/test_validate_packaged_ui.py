@@ -32,14 +32,14 @@ class ValidatePackagedUiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             source, app = self.create_bundle(Path(temporary))
             packaged, digest = validate_packaged_ui(source, app, "qt_ui/main.qml")
-            self.assertEqual(packaged, app / "_internal" / "qt_ui" / "main.qml")
+            self.assertTrue(packaged.samefile(app / "_internal" / "qt_ui" / "main.qml"))
             self.assertEqual(len(digest), 64)
 
     def test_older_application_root_layout_passes(self):
         with tempfile.TemporaryDirectory() as temporary:
             source, app = self.create_bundle(Path(temporary), internal=False)
             packaged, _ = validate_packaged_ui(source, app, "qt_ui/main.qml")
-            self.assertEqual(packaged, app / "qt_ui" / "main.qml")
+            self.assertTrue(packaged.samefile(app / "qt_ui" / "main.qml"))
 
     def test_stale_packaged_qml_fails(self):
         with tempfile.TemporaryDirectory() as temporary:
