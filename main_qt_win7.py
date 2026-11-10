@@ -19,11 +19,11 @@ from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtQuick import QQuickWindow
 from PySide2.QtQuickControls2 import QQuickStyle
 
-from core.controller import NetworkController
+from core.controller_win7 import Win7NetworkController
 from core.update_client import UpdateClient, UpdateInfo, installed_by_setup
 
 APP_NAME = "Achan"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
 DATA_DIR = LOCAL_APP_DATA / APP_NAME
@@ -164,7 +164,7 @@ class AchanBridge(QObject):
         self._update_check_running = False
         self._download_running = False
         self._update_client = UpdateClient()
-        self.controller = None if demo else NetworkController(APP_DIR, self._log, self._on_stage)
+        self.controller = None if demo else Win7NetworkController(APP_DIR, self._log, self._on_stage)
 
         self._stateEvent.connect(self._apply_state)
         self._stageEvent.connect(self._apply_stage)
