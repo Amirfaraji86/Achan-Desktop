@@ -59,7 +59,7 @@ Window {
     function connectionAccentSoft() {
         if (bridge.isBusy) return "#352B17"
         if (bridge.isConnected) return "#102719"
-        return "#30191C"
+        return "#111A13"
     }
     function progressValue() {
         if (bridge.isConnected) return 1.0
@@ -399,9 +399,10 @@ Window {
                                 spacing: 12
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 46
+                                    Layout.preferredHeight: 54
                                     Column {
-                                        spacing: 2
+                                        spacing: 1
+                                        Text { text: window.tr("نمای کلی", "OVERVIEW"); color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1 }
                                         Text { text: window.tr("داشبورد", "Dashboard"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 21; font.bold: true }
                                         Text { text: window.tr("مدیریت و کنترل اتصال آچان", "Manage and control your Achan connection"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
                                     }
@@ -471,7 +472,7 @@ Window {
                                                     }
                                                     Behavior on opacity { NumberAnimation { duration: 420 } }
                                                     SequentialAnimation on scale {
-                                                        running: bridge.isConnected || bridge.isBusy
+                                                        running: bridge.isConnected
                                                         loops: Animation.Infinite
                                                         NumberAnimation { to: 1.045; duration: 1250; easing.type: Easing.InOutSine }
                                                         NumberAnimation { to: 1.0; duration: 1250; easing.type: Easing.InOutSine }
@@ -522,11 +523,11 @@ Window {
                                                     width: 120; height: 120; radius: 60
                                                     anchors.centerIn: parent
                                                     gradient: Gradient {
-                                                        GradientStop { position: 0.0; color: bridge.isConnected ? "#17291E" : bridge.isBusy ? "#2B2416" : "#2B171B" }
-                                                        GradientStop { position: 1.0; color: bridge.isConnected ? "#0C1510" : bridge.isBusy ? "#17130D" : "#180E12" }
+                                                        GradientStop { position: 0.0; color: bridge.isConnected ? "#17291E" : bridge.isBusy ? "#2B2416" : "#18221B" }
+                                                        GradientStop { position: 1.0; color: bridge.isConnected ? "#0C1510" : bridge.isBusy ? "#17130D" : "#0D1510" }
                                                     }
                                                     border.width: powerMouse.containsMouse ? 2.5 : 2
-                                                    border.color: powerMouse.containsMouse ? (bridge.isConnected ? "#83FFB4" : bridge.isBusy ? "#F5D17C" : "#FF9298") : window.connectionAccent()
+                                                    border.color: powerMouse.containsMouse ? (bridge.isConnected ? "#83FFB4" : bridge.isBusy ? "#F5D17C" : "#A3B2A8") : bridge.isConnected ? "#39E783" : bridge.isBusy ? "#E7B95E" : "#435247"
                                                     scale: powerMouse.pressed ? 0.955 : powerMouse.containsMouse ? 1.045 : 1.0
                                                     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                                                     Behavior on border.color { ColorAnimation { duration: 220 } }
@@ -535,7 +536,7 @@ Window {
                                                         anchors.margins: 7
                                                         radius: width/2
                                                         color: "transparent"
-                                                        border.color: bridge.isConnected ? "#286B43" : bridge.isBusy ? "#69572E" : "#70313A"
+                                                        border.color: bridge.isConnected ? "#286B43" : bridge.isBusy ? "#69572E" : "#36483B"
                                                         border.width: 1
                                                         Behavior on border.color { ColorAnimation { duration: 180 } }
                                                     }
@@ -546,7 +547,7 @@ Window {
                                                         onPaint: {
                                                             var c = getContext("2d")
                                                             c.clearRect(0, 0, width, height)
-                                                            c.strokeStyle = window.connectionAccent()
+                                                            c.strokeStyle = bridge.isConnected ? "#39E783" : bridge.isBusy ? "#E7B95E" : "#84958A"
                                                             c.lineWidth = 5.2
                                                             c.lineCap = "round"
                                                             c.lineJoin = "round"
@@ -608,35 +609,6 @@ Window {
                                                 font.pixelSize: 9
                                                 Behavior on color { ColorAnimation { duration: 300 } }
                                             }
-                                            Canvas {
-                                                id: signalTrace
-                                                Layout.alignment: Qt.AlignHCenter
-                                                Layout.preferredWidth: 170
-                                                Layout.preferredHeight: 17
-                                                opacity: bridge.isConnected ? 0.72 : bridge.isBusy ? 0.52 : 0.24
-                                                property real phase: 0
-                                                onPaint: {
-                                                    var c = getContext("2d")
-                                                    c.clearRect(0, 0, width, height)
-                                                    c.beginPath()
-                                                    for (var x = 0; x <= width; x += 3) {
-                                                        var envelope = 0.28 + 0.72 * Math.sin(Math.PI * x / width)
-                                                        var y = height/2 + Math.sin((x * 0.075) + phase) * (height * 0.34) * envelope
-                                                        if (x === 0) c.moveTo(x, y); else c.lineTo(x, y)
-                                                    }
-                                                    c.strokeStyle = window.connectionAccent()
-                                                    c.lineWidth = 1.35
-                                                    c.lineCap = "round"
-                                                    c.stroke()
-                                                }
-                                                Behavior on opacity { NumberAnimation { duration: 340 } }
-                                            }
-                                            Timer {
-                                                interval: 38
-                                                repeat: true
-                                                running: window.currentPage === "dashboard" && window.visible
-                                                onTriggered: { signalTrace.phase += bridge.isBusy ? 0.19 : 0.075; signalTrace.requestPaint() }
-                                            }
                                             ColumnLayout {
                                                 Layout.fillWidth: true
                                                 Layout.topMargin: 2
@@ -671,59 +643,47 @@ Window {
                                                     ProgressStep { Layout.fillWidth: true; label: window.tr("تونل", "Tunnel"); statusState: bridge.tunnelState }
                                                 }
                                             }
+                                             RowLayout {
+                                                 Layout.fillWidth: true
+                                                 spacing: 8
+                                                 DashboardMetric { Layout.fillWidth: true; label: window.tr("پروکسی محلی", "Local proxy"); value: "127.0.0.1:4525"; glyph: "⌁"; active: bridge.proxyState === "ready" }
+                                                 DashboardMetric { Layout.fillWidth: true; label: window.tr("حالت DNS", "DNS mode"); value: "DNS over HTTPS"; glyph: "◌"; active: bridge.dohState === "ready" }
+                                                 DashboardMetric { Layout.fillWidth: true; label: window.tr("مسیریابی", "Routing"); value: "TCP / TUN"; glyph: "⇄"; active: bridge.tunnelState === "ready" }
+                                             }
+                                             Rectangle {
+                                                 Layout.fillWidth: true
+                                                 Layout.preferredHeight: 34
+                                                 radius: 9
+                                                 color: bridge.noticeLevel === "error" ? "#321A1C" : bridge.noticeLevel === "warning" ? "#2C2618" : "#11291B"
+                                                 border.color: bridge.noticeLevel === "error" ? "#79383D" : bridge.noticeLevel === "warning" ? "#66532A" : "#28633D"
+                                                 Text {
+                                                     anchors.fill: parent
+                                                     anchors.leftMargin: 12
+                                                     anchors.rightMargin: 12
+                                                     verticalAlignment: Text.AlignVCenter
+                                                     horizontalAlignment: bridge.language === "fa" ? Text.AlignRight : Text.AlignLeft
+                                                     text: bridge.demoMode ? window.tr("پیش‌نمایش نمایشی است؛ هیچ تغییری در شبکه ایجاد نمی‌شود.", "Demo preview only; no network settings are changed.") : (bridge.language === "fa" ? bridge.notice : bridge.noticeEnglish)
+                                                     color: "#C8D7CC"
+                                                     font.family: "Segoe UI"
+                                                     font.pixelSize: 9
+                                                     elide: Text.ElideRight
+                                                 }
+                                             }
                                             Item { Layout.fillHeight: true }
                                         }
 
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: parent.radius
-                                        color: "transparent"
-                                        border.width: 1
-                                        border.color: bridge.isConnected ? "#3DDE80" : bridge.isBusy ? "#9B8041" : "#66353B"
-                                        property real neonPulse: 0.0
-                                        opacity: bridge.isConnected ? 0.34 + neonPulse * 0.34 : bridge.isBusy ? 0.22 + neonPulse * 0.25 : 0.18
-                                        z: 6
-                                        Behavior on border.color { ColorAnimation { duration: 420 } }
-                                        SequentialAnimation on neonPulse {
-                                            running: bridge.isConnected || bridge.isBusy
-                                            loops: Animation.Infinite
-                                            NumberAnimation { to: 1.0; duration: 1100; easing.type: Easing.InOutSine }
-                                            NumberAnimation { to: 0.0; duration: 1100; easing.type: Easing.InOutSine }
-                                        }
-                                    }
                                     }
                                 }
 
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 42
-                                    radius: 10
-                                    color: bridge.noticeLevel === "error" ? "#321A1C" : bridge.noticeLevel === "warning" ? "#2C2618" : "#11291B"
-                                    border.color: bridge.noticeLevel === "error" ? "#79383D" : bridge.noticeLevel === "warning" ? "#66532A" : "#28633D"
-                                    Behavior on color { ColorAnimation { duration: 300 } }
-                                    Behavior on border.color { ColorAnimation { duration: 300 } }
-                                    Text {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 14
-                                        anchors.rightMargin: 14
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: bridge.language === "fa" ? Text.AlignRight : Text.AlignLeft
-                                        text: bridge.demoMode ? window.tr("پیش‌نمایش نمایشی است؛ هیچ تغییری در شبکه ایجاد نمی‌شود.", "Demo preview only; no network settings are changed.") : (bridge.language === "fa" ? bridge.notice : bridge.noticeEnglish)
-                                        color: "#C8D7CC"
-                                        font.family: "Segoe UI"
-                                        font.pixelSize: 9
-                                        elide: Text.ElideRight
-                                    }
-                                }
 
                             }
                         }
 
                         // SETTINGS PAGE
                         Item {
-                            ColumnLayout {
-                                anchors.fill: parent; spacing: 14
-                                PageHeading { titleText: window.tr("تنظیمات", "Settings"); subtitleText: window.tr("ترجیحات رابط و به‌روزرسانی", "Interface and update preferences") }
+                            GridLayout {
+                                anchors.fill: parent; columns: 2; columnSpacing: 12; rowSpacing: 12
+                                PageHeading { Layout.columnSpan: 2; eyebrowText: window.tr("تنظیمات برنامه", "APP PREFERENCES"); titleText: window.tr("تنظیمات", "Settings"); subtitleText: window.tr("ترجیحات رابط و به‌روزرسانی", "Interface and update preferences") }
                                 Rectangle {
                                     Layout.fillWidth: true; Layout.preferredHeight: 104
                                     radius: 15; color: "#111913"; border.color: window.border
@@ -757,6 +717,7 @@ Window {
                                     }
                                 }
                                 Rectangle {
+                                    Layout.columnSpan: 2
                                     Layout.fillWidth: true; Layout.fillHeight: true
                                     radius: 15; color: "#111913"; border.color: window.border
                                     Behavior on border.color { ColorAnimation { duration: 260 } }
@@ -776,7 +737,7 @@ Window {
                         Item {
                             ColumnLayout {
                                 anchors.fill: parent; spacing: 14
-                                PageHeading { titleText: window.tr("به‌روزرسانی آچان", "Achan updates"); subtitleText: window.tr("دریافت نسخه رسمی متناسب با ویندوز", "Official release channel for this Windows build") }
+                                PageHeading { eyebrowText: window.tr("انتشار رسمی", "STABLE CHANNEL"); titleText: window.tr("به‌روزرسانی آچان", "Achan updates"); subtitleText: window.tr("دریافت نسخه رسمی متناسب با ویندوز", "Official release channel for this Windows build") }
                                 Rectangle {
                                     Layout.fillWidth: true; Layout.fillHeight: true
                                     radius: 17; color: "#D0101A14"; border.color: window.border
@@ -785,15 +746,24 @@ Window {
                                         anchors.fill: parent; anchors.margins: 22; spacing: 14
                                         RowLayout {
                                             Layout.fillWidth: true
+                                            spacing: 12
+                                            Rectangle {
+                                                width: 50; height: 50; radius: 14; color: "#163D27"; border.color: "#31744B"
+                                                Text { anchors.centerIn: parent; text: "A"; color: window.green; font.family: "Segoe UI"; font.pixelSize: 30; font.bold: true }
+                                            }
                                             ColumnLayout {
-                                                Layout.fillWidth: true; spacing: 4
-                                                Text { text: window.tr("نسخه نصب‌شده", "Installed version"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9 }
-                                                Text { text: "Achan " + bridge.version; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 20; font.bold: true }
-                                                Text { text: bridge.updateChannel; color: "#7A8F80"; font.family: "Segoe UI"; font.pixelSize: 9 }
+                                                Layout.fillWidth: true; spacing: 3
+                                                Text { text: window.tr("نسخه فعلی", "CURRENT VERSION"); color: "#8BA193"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 0.5 }
+                                                Text { text: "Achan " + bridge.version; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 19; font.bold: true }
+                                                Text { text: bridge.updateChannel; color: "#7A8F80"; font.family: "Segoe UI"; font.pixelSize: 9; LayoutMirroring.enabled: false }
                                             }
                                             Rectangle {
-                                                width: 74; height: 74; radius: 18; color: "#143522"; border.color: "#286A43"
-                                                Text { anchors.centerIn: parent; text: "↻"; color: window.green; font.pixelSize: 42 }
+                                                radius: 14; height: 28; color: bridge.updateStatus === "error" ? "#321A1C" : "#112218"; border.color: bridge.updateStatus === "error" ? "#79383D" : "#28543A"
+                                                implicitWidth: updateBadgeText.implicitWidth + 24
+                                                Row { anchors.centerIn: parent; spacing: 7
+                                                    Rectangle { width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: bridge.updateStatus === "error" ? "#E56B76" : "#55D58A" }
+                                                    Text { id: updateBadgeText; text: bridge.updateStatus === "error" ? window.tr("خطا", "Issue") : bridge.updateStatus === "available" ? window.tr("نسخه تازه", "Update available") : bridge.updateStatus === "checking" ? window.tr("در حال بررسی", "Checking") : window.tr("کانال پایدار", "Stable channel"); color: bridge.updateStatus === "error" ? "#E7838A" : "#55D58A"; font.family: "Segoe UI"; font.pixelSize: 9 }
+                                                }
                                             }
                                         }
                                         DividerLine { }
@@ -832,20 +802,64 @@ Window {
                         // ABOUT PAGE
                         Item {
                             ColumnLayout {
-                                anchors.fill: parent; spacing: 14
-                                PageHeading { titleText: window.tr("درباره آچان", "About Achan"); subtitleText: window.tr("اطلاعات نسخه و فناوری‌ها", "Version and technology information") }
-                                Rectangle {
-                                    Layout.fillWidth: true; Layout.fillHeight: true
-                                    radius: 17; color: "#D0101A14"; border.color: window.border
-                                    Behavior on border.color { ColorAnimation { duration: 260 } }
-                                    ColumnLayout {
-                                        anchors.centerIn: parent; spacing: 9
-                                        Rectangle { Layout.alignment: Qt.AlignHCenter; width: 82; height: 82; radius: 23; color: "#143522"; border.color: "#2E7A4A"; Text { anchors.centerIn: parent; text: "A"; color: window.green; font.family: "Segoe UI"; font.pixelSize: 54; font.bold: true } }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: "Achan"; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 27; font.bold: true }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: window.tr("ابزار مدیریت اتصال شبکه در ویندوز", "Windows network connection utility"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: "Version " + bridge.version; color: window.green; font.family: "Segoe UI"; font.pixelSize: 10 }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: "PySide6 · Qt Quick · QML"; color: "#7C9082"; font.family: "Segoe UI"; font.pixelSize: 9 }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: "Made by Faraj"; color: "#A1B1A6"; font.family: "Segoe UI"; font.pixelSize: 10 }
+                                anchors.fill: parent
+                                spacing: 12
+                                PageHeading { eyebrowText: window.tr("درباره برنامه", "ABOUT ACHAN"); titleText: window.tr("درباره آچان", "About Achan"); subtitleText: window.tr("اطلاعات نسخه و فناوری‌ها", "Version and technology information") }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    spacing: 12
+                                    Rectangle {
+                                        Layout.preferredWidth: 310
+                                        Layout.fillHeight: true
+                                        radius: 20
+                                        color: "#101B14"
+                                        border.color: "#294331"
+                                        ColumnLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 8
+                                            Rectangle {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                width: 78; height: 78; radius: 23
+                                                color: "#143522"; border.color: "#2E7A4A"
+                                                Text { anchors.centerIn: parent; text: "A"; color: window.green; font.family: "Segoe UI"; font.pixelSize: 48; font.bold: true }
+                                            }
+                                            Text { Layout.alignment: Qt.AlignHCenter; text: "NETWORK UTILITY"; color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1.1 }
+                                            Text { Layout.alignment: Qt.AlignHCenter; text: "Achan"; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 22; font.bold: true }
+                                            Text { Layout.alignment: Qt.AlignHCenter; Layout.maximumWidth: 250; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap; text: window.tr("ابزار مدیریت اتصال شبکه در ویندوز", "Windows network connection utility"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
+                                            Rectangle {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                Layout.topMargin: 7
+                                                radius: 9; color: "#122319"; border.color: "#284932"
+                                                implicitWidth: versionLabel.implicitWidth + 22; implicitHeight: 30
+                                                Text { id: versionLabel; anchors.centerIn: parent; text: window.tr("نسخه ", "Version ") + bridge.version; color: "#9FC8AA"; font.family: "Segoe UI"; font.pixelSize: 10; LayoutMirroring.enabled: false; horizontalAlignment: Text.AlignLeft }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        radius: 20
+                                        color: "#101713"
+                                        border.color: window.border
+                                        ColumnLayout {
+                                            anchors.fill: parent; anchors.margins: 22; spacing: 11
+                                            Text { text: window.tr("اطلاعات پروژه", "PROJECT INFO"); color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 9; font.letterSpacing: 1 }
+                                            Text { text: window.tr("ساخته‌شده با دقت", "Built with care"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 17; font.bold: true }
+                                            Text { Layout.fillWidth: true; text: window.tr("آچان اتصال شبکه را از یک فضای کاری روشن و ساده مدیریت می‌کند.", "Achan manages network connectivity in a clear, focused workspace."); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10; wrapMode: Text.WordWrap }
+                                            DividerLine { Layout.topMargin: 4 }
+                                            InfoRow { label: window.tr("نسخه", "Version"); value: bridge.version }
+                                            InfoRow { label: window.tr("کانال سیستم", "System channel"); value: bridge.updateChannel }
+                                            InfoRow { label: window.tr("فناوری", "Technology"); value: "PySide6 · Qt Quick · QML" }
+                                            InfoRow { label: window.tr("طراحی و توسعه", "Design & development"); value: "Made by Faraj" }
+                                            Item { Layout.fillHeight: true }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Rectangle { width: 24; height: 24; radius: 7; color: "#143522"; border.color: "#276A43"; Text { anchors.centerIn: parent; text: "A"; color: window.green; font.pixelSize: 15; font.bold: true } }
+                                                Text { text: window.tr("ساخته‌شده برای اتصال بهتر", "Made for a better connection"); color: "#84978A"; font.family: "Segoe UI"; font.pixelSize: 9 }
+                                                Item { Layout.fillWidth: true }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -854,55 +868,82 @@ Window {
                         // LOGS & DIAGNOSTICS PAGE
                         Item {
                             ColumnLayout {
-                                anchors.fill: parent; spacing: 12
+                                anchors.fill: parent
+                                spacing: 12
                                 RowLayout {
-                                    Layout.fillWidth: true; Layout.preferredHeight: 48
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 54
                                     Column {
-                                        spacing: 2
-                                        Text { text: window.tr("گزارش و عیب‌یابی", "Logs & diagnostics"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 19; font.bold: true }
-                                        Text { text: window.tr("گزارش محلی اجرای آچان و خطاهای شبکه", "Local application and network diagnostic log"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 9 }
+                                        spacing: 1
+                                        Text { text: window.tr("جزئیات فنی", "TECHNICAL DETAILS"); color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1 }
+                                        Text { text: window.tr("گزارش و عیب‌یابی", "Logs & diagnostics"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 21; font.bold: true }
+                                        Text { text: window.tr("وضعیت اجزای آچان را بررسی کن", "Review Achan component status"); color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
                                     }
                                     Item { Layout.fillWidth: true }
                                     ActionButton { label: window.tr("تازه‌سازی", "Refresh"); accent: false; onClicked: bridge.refreshDiagnostics() }
                                     ActionButton { label: window.tr("کپی گزارش", "Copy log"); accent: true; onClicked: bridge.copyDiagnostics() }
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true; Layout.fillHeight: true
-                                    radius: 15; color: "#D0080E0A"; border.color: window.border
-                                    Behavior on border.color { ColorAnimation { duration: 260 } }
-                                    ScrollView {
-                                        anchors.fill: parent; anchors.margins: 12; clip: true
-                                        TextArea {
-                                            width: parent.width; text: bridge.diagnosticsText; readOnly: true; selectByMouse: true
-                                            wrapMode: TextEdit.Wrap; color: "#B5C9BA"; selectedTextColor: "#07110A"; selectionColor: window.green
-                                            font.family: "Consolas"; font.pixelSize: 9; background: null
-                                            LayoutMirroring.enabled: false
-                                            horizontalAlignment: TextEdit.AlignLeft
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    spacing: 12
+                                    Rectangle {
+                                        Layout.preferredWidth: 286
+                                        Layout.fillHeight: true
+                                        radius: 17; color: "#101713"; border.color: window.border
+                                        ColumnLayout {
+                                            anchors.fill: parent; anchors.margins: 16; spacing: 8
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true; spacing: 3
+                                                    Text { text: window.tr("وضعیت سیستم", "SYSTEM STATUS"); color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1 }
+                                                    Text { text: window.tr("اجزای سرویس", "Service components"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 14; font.bold: true }
+                                                }
+                                                Rectangle { width: 7; height: 7; radius: 4; color: "#51CF83" }
+                                            }
+                                            DividerLine { }
+                                            DiagnosticRow { labelText: "Core Engine"; valueText: window.stageText(bridge.engineState); stateValue: bridge.engineState }
+                                            DiagnosticRow { labelText: "Local Proxy"; valueText: window.stageText(bridge.proxyState); stateValue: bridge.proxyState }
+                                            DiagnosticRow { labelText: "DNS over HTTPS"; valueText: window.stageText(bridge.dohState); stateValue: bridge.dohState }
+                                            DiagnosticRow { labelText: "TUN Adapter"; valueText: window.stageText(bridge.tunnelState); stateValue: bridge.tunnelState }
+                                            Item { Layout.fillHeight: true }
+                                            Text { Layout.fillWidth: true; text: "127.0.0.1:4525"; color: "#718779"; font.family: "Consolas"; font.pixelSize: 9; horizontalAlignment: Text.AlignLeft; LayoutMirroring.enabled: false }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        radius: 17; color: "#0A100C"; border.color: window.border
+                                        ColumnLayout {
+                                            anchors.fill: parent; anchors.margins: 15; spacing: 8
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true; spacing: 2
+                                                    Text { text: window.tr("رویدادهای اخیر", "RECENT EVENTS"); color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1 }
+                                                    Text { text: window.tr("گزارش برنامه", "Application log"); color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 14; font.bold: true }
+                                                }
+                                                Text { text: "LOCAL LOG"; color: "#6F8977"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1 }
+                                            }
+                                            ScrollView {
+                                                Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                                                TextArea {
+                                                    width: parent.width; text: bridge.diagnosticsText; readOnly: true; selectByMouse: true
+                                                    wrapMode: TextEdit.Wrap; color: "#B5C9BA"; selectedTextColor: "#07110A"; selectionColor: window.green
+                                                    font.family: "Consolas"; font.pixelSize: 9; background: null
+                                                    LayoutMirroring.enabled: false
+                                                    horizontalAlignment: TextEdit.AlignLeft
+                                                }
+                                            }
+                                            Text { Layout.fillWidth: true; text: window.tr("گزارش‌ها به‌صورت محلی نگهداری می‌شوند.", "Logs remain on this device."); color: "#718578"; font.family: "Segoe UI"; font.pixelSize: 8 }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: 960
-                        Layout.preferredHeight: 64
-                        Layout.alignment: Qt.AlignHCenter
-                        radius: 14
-                        color: "#101713"
-                        border.color: window.border
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 4
-                            spacing: 3
-                            BottomNavItem { Layout.fillWidth: true; label: window.tr("داشبورد", "Dashboard"); glyph: "⌂"; selected: window.currentPage === "dashboard"; onClicked: window.navigateTo("dashboard") }
-                            BottomNavItem { Layout.fillWidth: true; label: window.tr("تنظیمات", "Settings"); glyph: "⚙"; selected: window.currentPage === "settings"; onClicked: window.navigateTo("settings") }
-                            BottomNavItem { Layout.fillWidth: true; label: window.tr("به‌روزرسانی", "Updates"); glyph: "↻"; selected: window.currentPage === "updates"; onClicked: window.navigateTo("updates") }
-                            BottomNavItem { Layout.fillWidth: true; label: window.tr("درباره", "About"); glyph: "ⓘ"; selected: window.currentPage === "about"; onClicked: window.navigateTo("about") }
-                            BottomNavItem { Layout.fillWidth: true; label: window.tr("گزارش‌ها", "Logs"); glyph: "≡"; selected: window.currentPage === "diagnostics"; onClicked: { window.navigateTo("diagnostics"); bridge.refreshDiagnostics() } }
-                        }
+                        
                     }
                 }
             }
@@ -981,7 +1022,6 @@ Window {
             powerRings.requestPaint()
             powerGlow.requestPaint()
             stateSpinner.requestPaint()
-            signalTrace.requestPaint()
         }
     }
 
@@ -1163,6 +1203,43 @@ Window {
         MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: bottomNavRoot.clicked() }
     }
 
+    component DashboardMetric: Rectangle {
+        id: dashboardMetricRoot
+        property string label: ""
+        property string value: ""
+        property string glyph: ""
+        property bool active: false
+        Layout.fillWidth: true; Layout.preferredHeight: 52
+        radius: 10; color: "#101D14"; border.color: "#1C3022"
+        RowLayout {
+            anchors.fill: parent; anchors.margins: 8; spacing: 7
+            Text { text: dashboardMetricRoot.glyph; color: "#77AA86"; font.family: "Segoe UI Symbol"; font.pixelSize: 16 }
+            ColumnLayout {
+                Layout.fillWidth: true; spacing: 2
+                Text { Layout.fillWidth: true; text: dashboardMetricRoot.label; color: "#819588"; font.family: "Segoe UI"; font.pixelSize: 8; elide: Text.ElideRight }
+                Text { Layout.fillWidth: true; text: dashboardMetricRoot.value; color: "#B8C9BD"; font.family: dashboardMetricRoot.value.length > 16 ? "Segoe UI" : "Consolas"; font.pixelSize: 9; elide: Text.ElideRight; LayoutMirroring.enabled: false; horizontalAlignment: Text.AlignLeft }
+            }
+            Rectangle { width: 6; height: 6; radius: 3; color: dashboardMetricRoot.active ? window.green : "#4B5C50"; Layout.alignment: Qt.AlignTop }
+        }
+    }
+
+    component DiagnosticRow: RowLayout {
+        id: diagnosticRowRoot
+        property string labelText: ""
+        property string valueText: ""
+        property string stateValue: "idle"
+        Layout.fillWidth: true; Layout.preferredHeight: 38
+        Rectangle {
+            width: 7; height: 7; radius: 4; Layout.alignment: Qt.AlignVCenter
+            color: diagnosticRowRoot.stateValue === "ready" ? window.green : diagnosticRowRoot.stateValue === "checking" ? "#E7B95E" : diagnosticRowRoot.stateValue === "error" ? "#E56B76" : "#536357"
+        }
+        ColumnLayout {
+            Layout.fillWidth: true; spacing: 2
+            Text { text: diagnosticRowRoot.labelText; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 10; font.bold: true }
+            Text { text: diagnosticRowRoot.valueText; color: diagnosticRowRoot.stateValue === "error" ? "#E7838A" : "#839588"; font.family: "Segoe UI"; font.pixelSize: 8 }
+        }
+    }
+
     component StatusPill: Rectangle {
         width: 104; height: 30; radius: 10
         color: bridge.isConnected ? "#153A25" : bridge.isBusy ? "#392E19" : "#32191D"
@@ -1180,17 +1257,17 @@ Window {
 
 
     component PageHeading: RowLayout {
+        property string eyebrowText: ""
         property string titleText: ""
         property string subtitleText: ""
-        Layout.fillWidth: true; Layout.preferredHeight: 48
+        Layout.fillWidth: true; Layout.preferredHeight: 54
         Column {
-            spacing: 2
+            spacing: 1
+            Text { text: parent.parent.eyebrowText; color: "#83A28E"; font.family: "Segoe UI"; font.pixelSize: 8; font.letterSpacing: 1; visible: text.length > 0 }
             Text { text: parent.parent.titleText; color: window.textPrimary; font.family: "Segoe UI"; font.pixelSize: 21; font.bold: true }
             Text { text: parent.parent.subtitleText; color: window.textMuted; font.family: "Segoe UI"; font.pixelSize: 10 }
         }
     }
-
-
     component InfoRow: RowLayout {
         property string label: ""
         property string value: ""
