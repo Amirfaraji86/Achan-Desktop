@@ -1,139 +1,141 @@
 # Achan | آچان
 
-### مدیریت هوشمند اتصال شبکه در ویندوز
+### Smart Network Connection Management for Windows
 
-آچان یک ابزار سبک و مینیمال برای مدیریت اتصال شبکه در ویندوز است که از DNS امن، پراکسی HTTP محلی و تونل شبکه استفاده می‌کند.
+Achan is a lightweight and minimalist tool for managing network connectivity in Windows. It uses secure DNS, a local HTTP proxy, and a network tunnel.
 
-تمام امکانات از طریق یک رابط گرافیکی فارسی در دسترس هستند. وضعیت اجزای مختلف شبکه به‌صورت مرحله‌ای نمایش داده می‌شود و کاربر می‌تواند اتصال را به‌سادگی فعال یا غیرفعال کند.
+All features are accessible through a Persian graphical user interface. The status of different network components is displayed step by step, allowing users to easily enable or disable the connection.
 
-**ساخته‌شده با ❤️ توسط Faraj**
+**Made with ❤️ by Faraj**
 
 ---
 
-## ✨ امکانات
+## ✨ Features
 
-- رابط گرافیکی فارسی با چینش راست‌به‌چپ.
-- فعال و غیرفعال کردن اتصال با یک کلید انیمیشنی.
-- نمایش مرحله‌ای وضعیت موتور شبکه، DNS، پراکسی و تونل.
-- استفاده از DNS over HTTPS (DoH).
-- ایجاد پراکسی HTTP محلی روی `127.0.0.1:4525`.
-- مسیریابی ترافیک TCP از طریق تونل TUN.
-- استفاده از Wintun و `tun2proxy`.
-- گزارش تشخیصی برای عیب‌یابی مشکلات اتصال.
-- نصب آسان بدون نیاز به نصب Python روی رایانه مقصد.
-- بررسی خودکار و دستی نسخه‌های جدید در نسخه‌های نصب‌شده.
-- به‌روزرسانی جداگانه برای Windows 7 و Windows 10/11.
+- Persian graphical user interface with right-to-left (RTL) layout.
+- Enable and disable the connection using an animated toggle switch.
+- Step-by-step status monitoring of the network engine, DNS, proxy, and tunnel.
+- Support for DNS over HTTPS (DoH).
+- Local HTTP proxy running at `127.0.0.1:4525`.
+- TCP traffic routing through a TUN tunnel.
+- Uses Wintun and `tun2proxy`.
+- Diagnostic logging for troubleshooting network issues.
+- Easy installation with no Python installation required on the target computer.
+- Automatic and manual update checks for installed versions.
+- Separate update channels for Windows 7 and Windows 10/11.
 
-## 🖥️ سیستم‌عامل‌های پشتیبانی‌شده
+## 🖥️ Supported Operating Systems
 
-| سیستم‌عامل | معماری | کانال انتشار |
+| Operating System | Architecture | Release Channel |
 |---|---|---|
 | Windows 11 | x64 | Windows 10/11 |
 | Windows 10 | x64 | Windows 10/11 |
 | Windows 7 SP1 | x64 | Windows 7 |
 
-نسخه Windows 7 از نسخه‌های قدیمی‌تر و سازگار Python و وابستگی‌های شبکه استفاده می‌کند. Windows 7 و Python 3.8 دیگر پشتیبانی عمومی دریافت نمی‌کنند؛ استفاده از نسخه‌های جدیدتر ویندوز توصیه می‌شود.
+The Windows 7 edition uses older, compatible versions of Python and networking dependencies.
 
-## ⚙️ آچان چطور کار می‌کند؟
+Windows 7 and Python 3.8 are no longer receiving general public support. Using newer versions of Windows is recommended.
 
-آچان از چند بخش تشکیل شده که در کنار یکدیگر کار می‌کنند:
+## ⚙️ How Does Achan Work?
 
-1. **DNS امن:** درخواست‌های DNS از طریق DNS over HTTPS به سرویس `sky.rethinkdns.com` ارسال می‌شوند.
-2. **پراکسی محلی:** یک پراکسی HTTP روی آدرس `127.0.0.1:4525` اجرا می‌شود.
-3. **تونل شبکه:** ابزار `tun2proxy` و درایور Wintun برای ایجاد لایه مسیریابی TUN استفاده می‌شوند.
-4. **مدیریت اتصال:** آچان وضعیت اجزای شبکه را بررسی می‌کند و هنگام قطع اتصال، برای بازیابی کنترل‌شده تنظیمات و مسیرهای شبکه تلاش می‌کند.
+Achan consists of several components that work together:
 
-## 📥 دانلود و نصب
+1. **Secure DNS:** DNS requests are sent through DNS over HTTPS to the `sky.rethinkdns.com` service.
+2. **Local Proxy:** An HTTP proxy runs locally at `127.0.0.1:4525`.
+3. **Network Tunnel:** The `tun2proxy` utility and Wintun driver are used to establish a TUN-based routing layer.
+4. **Connection Management:** Achan monitors the status of network components and attempts to restore network settings and routes in a controlled manner when the connection is interrupted.
 
-برای دریافت آخرین نسخه‌ها به صفحه Releases مخزن مراجعه کن:
+## 📥 Download and Installation
 
-🔗 [دانلود نسخه‌های Achan](https://github.com/Amirfaraji86/Achan-Desktop/releases)
+Visit the repository's Releases page to download the latest versions:
 
-نسخه متناسب با سیستم‌عامل خود را انتخاب کن:
+🔗 [Download Achan Releases](https://github.com/Amirfaraji86/Achan-Desktop/releases)
 
-- **Windows 10 & 11:** نسخه مخصوص ویندوزهای جدید.
-- **Windows 7 SP1:** نسخه سازگار با ویندوز ۷ سرویس‌پک ۱.
+Choose the version compatible with your operating system:
 
-برای هر پلتفرم، سه نوع خروجی ارائه می‌شود:
+- **Windows 10 & 11:** Edition designed for newer Windows versions.
+- **Windows 7 SP1:** Edition compatible with Windows 7 Service Pack 1.
 
-| نوع فایل | توضیح |
+Three types of packages are provided for each platform:
+
+| Package Type | Description |
 |---|---|
-| Setup | نصب‌کننده معمولی ویندوز |
-| Portable | نسخه قابل‌حمل، بدون فرایند نصب |
-| Distribution | بسته کامل شامل فایل‌های اصلی و راهنما |
+| Setup | Standard Windows installer |
+| Portable | Portable edition that requires no installation |
+| Distribution | Complete package containing the main application files and documentation |
 
-فایل Manifest مربوط به هر پلتفرم نیز برای اعتبارسنجی به‌روزرسانی‌ها ارائه می‌شود.
+A platform-specific Manifest file is also provided to validate updates.
 
-برای فعال‌کردن تونل شبکه، برنامه به دسترسی Administrator نیاز دارد. ممکن است ویندوز درخواست UAC نمایش دهد.
+Administrator privileges are required to activate the network tunnel. Windows may display a User Account Control (UAC) prompt.
 
-## 🔄 به‌روزرسانی خودکار
+## 🔄 Automatic Updates
 
-نسخه‌های نصب‌شده Achan دارای سیستم AutoUpdater هستند.
+Installed versions of Achan include an AutoUpdater system.
 
-این سیستم به‌صورت دوره‌ای نسخه‌های جدید را از GitHub Releases بررسی می‌کند. همچنین امکان بررسی دستی به‌روزرسانی از داخل برنامه وجود دارد.
+This system periodically checks GitHub Releases for newer versions. Users can also manually check for updates from within the application.
 
-فرایند به‌روزرسانی شامل مراحل زیر است:
+The update process consists of the following steps:
 
-1. بررسی نسخه جدید در کانال پایدار مربوط به سیستم‌عامل.
-2. دریافت Manifest مخصوص پلتفرم.
-3. دانلود نصب‌کننده مناسب.
-4. اعتبارسنجی نام فایل، نسخه، اندازه و SHA-256.
-5. خاموش‌کردن کنترل‌شده تونل و بستن برنامه.
-6. اجرای ابزار مستقل نصب‌کننده.
-7. نصب نسخه جدید و اجرای مجدد Achan.
+1. Check for a new version in the appropriate stable release channel for the operating system.
+2. Retrieve the platform-specific Manifest.
+3. Download the appropriate installer.
+4. Validate the file name, version, file size, and SHA-256 checksum.
+5. Shut down the tunnel gracefully and close the application.
+6. Launch the standalone updater.
+7. Install the new version and restart Achan.
 
-**نکات مهم:**
+**Important Notes:**
 
-- ممکن است هنگام نصب به‌روزرسانی، ویندوز پنجره UAC نمایش دهد.
-- آچان درخواست‌های امنیتی ویندوز را دور نمی‌زند.
-- نسخه Portable به‌صورت خودکار جایگزین نمی‌شود و باید دستی به‌روزرسانی شود.
-- نسخه 1.0.3 فاقد سیستم AutoUpdater بود؛ بنابراین کاربران این نسخه باید برای اولین ارتقا، نسخه 1.1.0 را دستی نصب کنند. پس از آن، نسخه‌های نصب‌شده می‌توانند از به‌روزرسانی خودکار استفاده کنند.
+- Windows may display a UAC prompt during the update installation process.
+- Achan does not bypass Windows security prompts.
+- The Portable edition is not automatically replaced and must be updated manually.
+- Version 1.0.3 did not include an AutoUpdater system. Therefore, users of this version must manually install version 1.1.0 for their first upgrade. After that, installed versions can use automatic updates.
 
-## ⚠️ محدودیت‌ها و شفافیت
+## ⚠️ Limitations and Transparency
 
-آچان یک VPN با سرور راه‌دور نیست و نباید آن را با سرویس‌های VPN اشتباه گرفت.
+Achan is not a VPN with a remote server and should not be confused with VPN services.
 
-- **مخفی‌نکردن IP عمومی:** آچان IP عمومی کاربر را مخفی نمی‌کند.
-- **محدودیت UDP:** پراکسی HTTP مورد استفاده، UDP عمومی را منتقل نمی‌کند.
-- **بازی‌ها و تماس‌ها:** بازی‌های آنلاین، تماس‌های اینترنتی و برنامه‌های وابسته به UDP ممکن است درست کار نکنند.
-- **QUIC و HTTP/3:** بعضی برنامه‌ها و مرورگرها ممکن است با این پروتکل‌ها مشکل داشته باشند.
-- **وابستگی به شبکه:** عملکرد آچان به ISP، مسیر ارتباطی و دسترسی به سرویس DoH بستگی دارد.
-- **بازیابی شبکه:** در صورت بسته‌شدن اجباری یا ناگهانی پردازش تونل، ممکن است بازیابی مسیرهای شبکه کامل نشود.
+- **Does Not Hide Your Public IP:** Achan does not hide the user's public IP address.
+- **UDP Limitation:** The HTTP proxy used by Achan does not support forwarding general UDP traffic.
+- **Games and Voice Calls:** Online games, internet calls, and applications that depend on UDP may not work properly.
+- **QUIC and HTTP/3:** Some applications and browsers may experience compatibility issues with these protocols.
+- **Network Dependency:** Achan's performance depends on the ISP, network routing, and accessibility of the selected DoH service.
+- **Network Recovery:** If the tunnel process is forcibly terminated or crashes unexpectedly, network routes may not be fully restored.
 
-بازشدن سایت خاص یا عبور از تمام محدودیت‌های اینترنت تضمین‌شده نیست.
+Access to specific websites or bypassing all internet restrictions is not guaranteed.
 
-## 🪟 پیش‌نیازهای Windows 7
+## 🪟 Windows 7 Requirements
 
-نسخه Windows 7 مخصوص Windows 7 SP1 x64 طراحی شده است.
+The Windows 7 edition is specifically designed for Windows 7 SP1 x64.
 
-پیش از نصب درایور امضاشده، به‌روزرسانی‌های SHA-2 مایکروسافت باید نصب شده باشند:
+Before installing the signed driver, the following Microsoft SHA-2 updates must be installed:
 
 - KB4474419
 - KB4490628
 
-پس از نصب این به‌روزرسانی‌ها، ویندوز باید Restart شود.
+Windows must be restarted after installing these updates.
 
-در صورت نیاز، نصب‌کننده Runtime مربوط به Visual C++ 2015–2019 را نیز نصب می‌کند.
+If necessary, the installer will also install the Visual C++ 2015–2019 Runtime.
 
-## 🔐 حریم خصوصی و گزارش‌ها
+## 🔐 Privacy and Logs
 
-گزارش‌های فنی برنامه به‌صورت محلی ذخیره می‌شوند و آچان در حالت عادی آن‌ها را به سرور اختصاصی خود ارسال نمی‌کند.
+Application diagnostic logs are stored locally. Under normal operating conditions, Achan does not send these logs to any dedicated server.
 
-مسیر گزارش اصلی:
+Main log location:
 
 ```text
 %LOCALAPPDATA%\Achan\logs\achan.log
 ```
 
-گزارش ابزار مستقل به‌روزرسانی نیز در همان پوشه و با نام `updater.log` ذخیره می‌شود.
+The standalone updater also stores its logs in the same directory under the name `updater.log`.
 
-اطلاعات نسخه و فایل‌های نصب‌کننده برای بررسی و دریافت به‌روزرسانی از مخزن رسمی GitHub و میزبان‌های ارائه فایل آن دریافت می‌شوند.
+Version information and installer files are retrieved from the official GitHub repository and its file hosting services for update checks and downloads.
 
-توجه داشته باش که درخواست‌های DNS برای پردازش به سرویس DoH انتخاب‌شده ارسال می‌شوند.
+Please note that DNS requests are sent to the selected DoH service for processing.
 
-## 🧰 فناوری‌ها و پروژه‌های استفاده‌شده
+## 🧰 Technologies and Third-Party Projects
 
-آچان از ابزارها و پروژه‌های زیر استفاده می‌کند:
+Achan uses the following tools and projects:
 
 - [Python](https://www.python.org/)
 - [Tkinter](https://docs.python.org/3/library/tkinter.html)
@@ -143,59 +145,61 @@
 - [PyInstaller](https://pyinstaller.org/)
 - [Inno Setup](https://jrsoftware.org/isinfo.php)
 
-مجوزها و اطلاعیه‌های مربوط به کتابخانه‌های شخص ثالث در فایل `THIRD_PARTY_NOTICES.md` و پوشه `licenses/` قرار دارند.
+Licenses and notices for third-party libraries are available in the `THIRD_PARTY_NOTICES.md` file and the `licenses/` directory.
 
-## 🏗️ فرایند ساخت و انتشار خودکار
+## 🏗️ Automated Build and Release Process
 
-ساخت نسخه‌های آچان از طریق GitHub Actions انجام می‌شود.
+Achan builds are handled through GitHub Actions.
 
-دو Workflow اصلی پروژه عبارت‌اند از:
+The project uses two main workflows:
 
-| فایل Workflow | سیستم‌عامل | نسخه Python |
+| Workflow File | Operating System | Python Version |
 |---|---|---|
 | `build-windows.yml` | Windows 10/11 x64 | Python 3.13 |
 | `build-windows7.yml` | Windows 7 SP1 x64 | Python 3.8.10 |
 
-برای انتشار نسخه جدید:
+To publish a new version:
 
-1. تغییرات کد را انجام بده.
-2. فایل `RELEASE_NOTES_FA.md` را به‌روزرسانی کن.
-3. مقدار نسخه را با اسکریپت انتشار هماهنگ کن.
-4. اسکریپت زیر را از PowerShell و در ریشه مخزن اجرا کن:
+1. Make the required code changes.
+2. Update the `RELEASE_NOTES_FA.md` file.
+3. Synchronize the version number with the release script.
+4. Run the following script from PowerShell in the repository root directory:
 
 ```powershell
 .\scripts\publish-release.ps1 -Version X.Y.Z -CommitAndPush
 ```
 
-این اسکریپت نسخه‌های برنامه، اطلاعات فایل اجرایی ویندوز و Inno Setup را هماهنگ می‌کند و تغییرات را Commit و Push می‌کند.
+This script synchronizes the application version information, Windows executable metadata, and Inno Setup configuration, then commits and pushes the changes.
 
-پس از Push، هر دو Workflow تغییر نسخه را تشخیص می‌دهند و در صورت تغییر نسخه:
+After the push, both workflows detect the version change and, when a new version is identified:
 
-- فایل‌های اجرایی و نصب‌کننده را می‌سازند.
-- بسته‌های Portable و Distribution را آماده می‌کنند.
-- Manifest مخصوص هر پلتفرم را تولید می‌کنند.
-- Tag و GitHub Release مربوط به همان پلتفرم را ایجاد می‌کنند.
+- Build the application executables and installers.
+- Prepare Portable and Distribution packages.
+- Generate platform-specific Manifests.
+- Create the corresponding Git tags and GitHub Releases for each platform.
 
-الگوی Tagها:
+Tag naming convention:
 
 ```text
 vX.Y.Z-win10-11
 vX.Y.Z-win7
 ```
 
-**نکته مهم:** Tag و Release را دستی ایجاد نکن و فایل‌های انتشار را جداگانه بارگذاری نکن. انتشار این فایل‌ها باید توسط Workflowهای GitHub Actions انجام شود. Push معمولی که نسخه را تغییر ندهد، مراحل انتشار نسخه جدید را اجرا نمی‌کند.
+**Important:** Do not create tags or releases manually, and do not upload release files separately. All release assets must be published through the GitHub Actions workflows.
 
-## 🐛 گزارش مشکل و پیشنهاد
+A regular push that does not change the version number will not trigger the new-version release process.
 
-در صورت مشاهده مشکل یا داشتن پیشنهاد برای بهترشدن آچان، از بخش Issues مخزن استفاده کن:
+## 🐛 Bug Reports and Suggestions
 
-🔗 [ثبت مشکل یا پیشنهاد](https://github.com/Amirfaraji86/Achan-Desktop/issues)
+If you encounter an issue or have a suggestion for improving Achan, please use the repository's Issues section:
+
+🔗 [Report a Bug or Submit a Suggestion](https://github.com/Amirfaraji86/Achan-Desktop/issues)
 
 ---
 
 <div align="center">
 
-### 🌿 Achan — ساده، سبک و کاربردی
+### 🌿 Achan — Simple, Lightweight, and Practical
 
 **Made by Faraj**
 
